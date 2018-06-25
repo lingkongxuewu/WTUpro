@@ -1,0 +1,327 @@
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE CALMCUT
+OBJECT MODULE PLACED IN .\obj\CalMcuT.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\CalMcuT.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(
+                    -.\list\CalMcuT.lst) OBJECT(.\obj\CalMcuT.obj)
+
+line level    source
+
+   1          #define __CALMCUT_C__
+   2          #include "_Include.h"
+   3          
+   4          
+   5          static struct mcut_calib xdata *PMCUTCAL= &McuTcal;
+   6          static int16u xdata mtemp_buf[MTEMP_CAL_NUM];
+   7          
+   8          //***********************************************************************/
+   9          // *功    能：设置MCU温度补偿点个数
+  10          // *入    口：
+  11          // *出    口：
+  12          // *备    注：
+  13          // *函数性质：
+  14          //***********************************************************************/
+  15          static void McuT_SetCalCnt(struct mcut_calib *p_cal, int8u num)
+  16          {
+  17   1          p_cal->calcnt=num;
+  18   1      }
+  19          
+  20          //***********************************************************************/
+  21          // *功    能：读温度校准模块中温度数组的某个元素
+  22          // *入    口：
+  23          // *出    口：温度值
+  24          // *备    注：
+  25          // *函数性质：
+  26          //***********************************************************************/
+  27          
+  28          static int16s   McuT_RdTempVal(struct mcut_calib *p_cal, int8u posid)
+  29          {
+  30   1          return (p_cal->mcu_temp[posid]);
+  31   1      }
+  32          //***********************************************************************/
+  33          // *功    能：读MCU温度校准模块中ADC数组的某个元素
+  34          // *入    口：
+  35          // *出    口：
+  36          // *备    注：
+  37          // *函数性质：
+  38          //***********************************************************************/
+  39          static int16u   McuT_RdAdcVal(struct mcut_calib *p_cal, int8u posid)
+  40          {
+  41   1          return (p_cal->ptempadc[posid]);
+  42   1      }
+  43          
+  44          //***********************************************************************/
+  45          // *功    能：设置温度校准模块中温度数组的某个元素
+  46          // *入    口：
+  47          // *出    口：
+  48          // *备    注：
+  49          // *函数性质：
+  50          //***********************************************************************/
+  51          static void McuT_WrTempVal(struct mcut_calib *p_cal,int16s val, int8u posid)
+  52          {
+  53   1          p_cal->mcu_temp[posid]=val;
+  54   1      }
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 2   
+
+  55          
+  56          //***********************************************************************/
+  57          // *功    能：设置温度校准模块中ADC数组的某个元素
+  58          // *入    口：
+  59          // *出    口：
+  60          // *备    注：
+  61          // *函数性质：
+  62          //***********************************************************************/
+  63          static void McuT_WrAdcVal(struct mcut_calib *p_cal,int16u val, int8u posid)
+  64          {
+  65   1          p_cal->ptempadc[posid]=val;
+  66   1      }
+  67          
+  68          //***********************************************************************/
+  69          // *功    能：MCU温度A,K参数计算
+  70          // *入    口：p_cal,temp_calib结构体指针(X,Y);
+  71          // *出    口：
+  72          // *备    注：
+  73          // *函数性质：
+  74          //***********************************************************************/
+  75          static void Mcut_CalcPrm(struct mcut_calib *p_cal)
+  76          {
+  77   1          int8u xdata i;
+  78   1      //      float aa;
+  79   1      //      float bb,cc;
+  80   1          for(i=0;i<(p_cal->calcnt-1);i++)                                                    //计算所有的A,K值
+  81   1          {
+  82   2      //              aa=(float)(p_cal->mcu_temp[i+1]-p_cal->mcu_temp[i]);
+  83   2      //              bb=(float)((int32s)p_cal->ptempadc[i+1]-(int32s)p_cal->ptempadc[i]);
+  84   2      //              cc = (float)(aa/bb);
+  85   2              p_cal->prm_k[i]=((float)(p_cal->mcu_temp[i+1]-p_cal->mcu_temp[i])/((int32s)p_cal->ptempadc[i+1]-(i
+             -nt32s)p_cal->ptempadc[i]));
+  86   2              p_cal->prm_a[i] = (float)(p_cal->mcu_temp[i]-p_cal->prm_k[i]*(p_cal->ptempadc[i]) );
+  87   2          }
+  88   1      }
+  89          
+  90          
+  91          
+  92          void SetMcuTCalCnt(int8u cnt)
+  93          {
+  94   1           McuT_SetCalCnt(&McuTcal,cnt);    //设置温度校准点个数
+  95   1      }
+  96          
+  97          //***********************************************************************/
+  98          // *功    能：获取MCU温度校准点个数
+  99          // *入    口：
+ 100          // *出    口：
+ 101          // *备    注：
+ 102          // *函数性质：
+ 103          //***********************************************************************/
+ 104          int8u GetMcuTCalCnt(void)
+ 105          {
+ 106   1          return (McuTcal.calcnt);    //获取MCU温度校准点个数
+ 107   1      }
+ 108          //***********************************************************************/
+ 109          // *功    能：读MCU温度校准中温度数组的某个元素
+ 110          // *入    口：pos,数组中的位置
+ 111          // *出    口：温度值
+ 112          // *备    注：
+ 113          // *函数性质：
+ 114          //***********************************************************************/
+ 115          int16s GetMcuTCalTempVal(int8u pos)
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 3   
+
+ 116          {
+ 117   1          return (McuT_RdTempVal(&McuTcal,pos));
+ 118   1      }
+ 119          //***********************************************************************/
+ 120          // *功    能：读温度校准模块中X轴ADC数组的某个元素
+ 121          // *入    口：pos,数组中的位置
+ 122          // *出    口：角度0时的ADC值
+ 123          // *备    注：保证位置在数组的范围内
+ 124          //***********************************************************************/
+ 125          int16u GetMcuTCalAdcVal(int8u pos)
+ 126          {
+ 127   1          return (McuT_RdAdcVal(&McuTcal,pos));
+ 128   1      }
+ 129          //***********************************************************************/
+ 130          // *功    能：设置温度校准模块中X轴温度数组的某个元素
+ 131          // *入    口：val，温度AD值;pos,数组中的位置
+ 132          // *出    口：
+ 133          // *备    注：保证位置在数组的范围内
+ 134          //***********************************************************************/
+ 135          void SetMcuTCalTempVal(int16s val, int8u pos)
+ 136          {
+ 137   1          McuT_WrTempVal(&McuTcal,val,pos);
+ 138   1      }
+ 139          //***********************************************************************/
+ 140          // *功    能：设置温度校准模块中X轴ADC数组的某个元素
+ 141          // *入    口：val,写入的角度0时的AD值;pos,位置
+ 142          // *出    口：
+ 143          // *备    注：保证位置在数组的范围内
+ 144          //***********************************************************************/
+ 145          void SetMcuTCalAdcVal(int16u val, int8u pos)
+ 146          {
+ 147   1          McuT_WrAdcVal(&McuTcal,val,pos);
+ 148   1      }
+ 149          //***********************************************************************/
+ 150           
+ 151          void  CalibMtInit(void)
+ 152          {
+ 153   1              McuTcal.ptempadc=mtemp_buf;            //温度校准模块中温度AD值缓存数组
+ 154   1          McuTcal.SetCalNum=SetMcuTCalCnt;     //设置温度校准个数
+ 155   1          McuTcal.RdTempVal=GetMcuTCalTempVal; //读温度设置数据
+ 156   1          McuTcal.RdAdcVal=GetMcuTCalAdcVal;   //读温度AD数据
+ 157   1          McuTcal.WrTempVal=SetMcuTCalTempVal; //写温度设置数据
+ 158   1          McuTcal.WrAdcVal=SetMcuTCalAdcVal;   //写温度AD返回数据
+ 159   1      //  McuTcal.CalcPrm=McuTCalcPrm;            //计算参数A,K
+ 160   1      }
+ 161          //***********************************************************************/
+ 162          // *功    能：MCU温度标定默认数据初始化
+ 163          // *入    口：
+ 164          // *出    口：
+ 165          // *备    注：Flash 初始化的时候调用
+ 166          // *函数性质：
+ 167          //***********************************************************************/
+ 168          void MTCalDataInit()
+ 169          {
+ 170   1          int8u xdata i;
+ 171   1          SetMcuTCalCnt(5);                                                                   //设置温度校准点个数
+ 172   1          for(i=0;i<MTEMP_CAL_NUM;i++)                                                        //10
+ 173   1          {
+ 174   2              McuTcal.ptempadc[i] = 500*(i-MTEMP_CAL_NUM/2)+8000; //MCU的温度AD
+ 175   2      //              if(i==0)
+ 176   2      //      {
+ 177   2      //                      McuTcal.mcu_temp[i] = 25;
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 4   
+
+ 178   2      //              }
+ 179   2                      McuTcal.mcu_temp[i] = 5*(i-ANG_CAL_NUM/2); 
+ 180   2          }
+ 181   1              McuTcal.ptempadc[0]= 217;
+ 182   1              McuTcal.ptempadc[1]= 207;
+ 183   1              McuTcal.ptempadc[2]= 197;
+ 184   1              McuTcal.ptempadc[3]= 185;
+ 185   1              McuTcal.ptempadc[4]= 176;
+ 186   1              McuTcal.ptempadc[5]= 163;
+ 187   1              McuTcal.ptempadc[6]= 153;
+ 188   1              McuTcal.ptempadc[7]= 140;
+ 189   1              McuTcal.ptempadc[8]= 129;
+ 190   1      
+ 191   1              McuTcal.mcu_temp[0]= -15;
+ 192   1              McuTcal.mcu_temp[1]= -5;
+ 193   1              McuTcal.mcu_temp[2]= 5;
+ 194   1              McuTcal.mcu_temp[3]= 15;
+ 195   1              McuTcal.mcu_temp[4]= 25;
+ 196   1              McuTcal.mcu_temp[5]= 35;
+ 197   1              McuTcal.mcu_temp[6]= 45;
+ 198   1              McuTcal.mcu_temp[7]= 55;
+ 199   1              McuTcal.mcu_temp[8]= 65;
+ 200   1      }
+ 201          //***********************************************************************/
+ 202          // *功    能：获取MCU温度值
+ 203          // *入    口：
+ 204          // *出    口：
+ 205          // *备    注：
+ 206          // *函数性质：
+ 207          //***********************************************************************/
+ 208          //float GetMt(int16u tadc)
+ 209          //{
+ 210          //    int8u xdata i;
+ 211          //    float xdata offset;
+ 212          //
+ 213          //    for(i=0;i<(PMCUTCAL->calcnt-2);i++)                                                               //找不到符合条件的直接通过最后一组标定值进行温度计算
+ 214          //    {
+ 215          //        if(tadc>(PMCUTCAL->ptempadc[i+1]))                                                    //查找温度在温度校准参数温度数组中的位置
+ 216          //            break;
+ 217          //    }
+ 218          //    offset = (PMCUTCAL->prm_k[i]*tadc+PMCUTCAL->prm_a[i])*10000;    //获取相应的K,A值，并计算  
+ 219          //
+ 220          //    return offset;
+ 221          //}
+ 222          
+ 223          
+ 224          
+ 225          //***********************************************************************/
+ 226          // *功    能：根据温度进行升序排序，并计算MCU温度系数K,A
+ 227          // *入    口：
+ 228          // *出    口：
+ 229          // *备    注：
+ 230          // *函数性质：
+ 231          //***********************************************************************/
+ 232          static void McuTCalcPrm ()
+ 233          {
+ 234   1      
+ 235   1              Sub_BufBubble16s(PMCUTCAL->mcu_temp,PMCUTCAL->ptempadc,PMCUTCAL->calcnt);//排序
+ 236   1      
+ 237   1              Mcut_CalcPrm(&McuTcal);                                                                                                          //MCU T参数计算
+ 238   1      
+ 239   1      }
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 5   
+
+ 240          //***********************************************************************/
+ 241          // *功    能：写入温度校准参数
+ 242          // *入    口：
+ 243          // *出    口：
+ 244          // *备    注：
+ 245          // *函数性质：
+ 246          //***********************************************************************/
+ 247          int8u McuT_CalValWr (int8u id,int16s temp,int16u tadc)
+ 248          {
+ 249   1              if(id>=MTEMP_CAL_NUM)return FALSE;
+ 250   1              PMCUTCAL->WrTempVal(temp,id);       //写标定的温度值
+ 251   1              PMCUTCAL->WrAdcVal(tadc,id);        //写当前标定的温度AD值
+ 252   1      
+ 253   1              return TRUE;
+ 254   1      }
+ 255          //***********************************************************************/
+ 256          // *功    能：MCU温度标定开始
+ 257          // *入    口：
+ 258          // *出    口：
+ 259          // *备    注：用于通信中
+ 260          // *函数性质：
+ 261          //***********************************************************************/
+ 262          int8u McuT_CalSta (void)
+ 263          {
+ 264   1      //      if(MenuId!=MOD_MOD0)return FALSE;
+ 265   1      //      MenuId=MOD_MT_CAL;                                                        //因为MCU温度标定和温补一起作业，此处需注释掉
+ 266   1              return TRUE;
+ 267   1      }
+ 268          //***********************************************************************/
+ 269          // *功    能：MCU温度标定结束
+ 270          // *入    口：
+ 271          // *出    口：
+ 272          // *备    注：
+ 273          // *函数性质：
+ 274          //***********************************************************************/
+ 275          int8u McuT_CalStop (void)
+ 276          {
+ 277   1      //      if(MenuId!=MOD_MT_CAL)return FALSE;
+ 278   1      //      MenuId=MOD_MOD0;                                                   //因为MCU温度标定和温补一起作业，此处需注释掉
+ 279   1              McuTCalcPrm();
+ 280   1              return TRUE;
+ 281   1      }
+ 282          //***********************************************************************/
+ 283          int8u Mcut_CalSamp (int8u id,int16s temp,int16u tadc)
+ 284          {
+ 285   1      //      if(MenuId!=MOD_MT_CAL)
+ 286   1      //              return FALSE;
+ 287   1      
+ 288   1              if(McuT_CalValWr(id,temp,tadc)==FALSE)
+ 289   1              return FALSE;
+ 290   1              Sub_SendMcuT(temp,tadc);
+ 291   1              return TRUE;
+ 292   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1067    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    241       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2      22
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.01   CALMCUT                                                               06/01/2018 17:39:14 PAGE 6   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

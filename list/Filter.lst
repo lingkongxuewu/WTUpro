@@ -1,0 +1,111 @@
+C51 COMPILER V9.01   FILTER                                                                06/01/2018 17:39:15 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE FILTER
+OBJECT MODULE PLACED IN .\obj\Filter.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Filter.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.
+                    -\list\Filter.lst) OBJECT(.\obj\Filter.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  Filter.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  滤波函数   100T双轴 整合后的版本
+   5          * 创建人：   
+   6          * 日  期：   
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #include "Filter.h"
+  18          
+  19          //***********************************************************************/
+  20          // *功    能：限幅滤波
+  21          // *入    口：old_val，前一次的值；new_val，新值；range，范围
+  22          // *出    口：当新值在幅度内时返回1，否则返回0
+  23          // *备    注：幅度为old_val-range<new_val<old_val+range
+  24          // *函数性质：
+  25          //***********************************************************************/
+  26          int8u ValInRange(int32u old_val,int32u new_val,int32u range) reentrant
+  27          {
+  28   1              if((new_val>(old_val+range))||((new_val+range)<old_val))
+  29   1                      return 0;
+  30   1              else
+  31   1                      return 1;
+  32   1      }
+  33          
+  34          #if 0
+              int8u ValOutRange(int32u old_val,int32u new_val,int32u range) reentrant
+              {
+                      if((new_val>(old_val+range))||((new_val+range)<old_val))
+                              return 1;
+                      else
+                              return 0;
+              }
+              #endif
+  43          //***********************************************************************/
+  44          // *功    能：滑动窗口滤波
+  45          // *入    口：pbufpos,缓存位置指针;pbufcnt,缓存中元素个数指针;pbuf,缓存指针;
+  46          //                                              val,新值;ftcnt，窗口长度（元素个数）
+  47          // *出    口：当窗口数据填满之后返回平均值，否则返回传入值
+  48          // *备    注：保证ftcnt小于等于缓存指针所指向的数组的大小
+  49          // *函数性质：
+  50          //***********************************************************************/
+  51          int32u SlideWinFilter (int8u *pbufpos, int8u *pbufcnt, int32u *pbuf, int32u val, int16u ftcnt) reentrant
+  52          {
+  53   1              int32u data_ram=0;
+  54   1              int8u i;
+C51 COMPILER V9.01   FILTER                                                                06/01/2018 17:39:15 PAGE 2   
+
+  55   1              *(pbuf+*pbufpos)=val;                   //替换光标（位置）所在的元素
+  56   1              (*pbufpos)++;                           //光标后移
+  57   1              if(ftcnt==*(pbufpos))
+  58   1                      *pbufpos=0;                             //光标到达窗口末尾，重新回到起始位置
+  59   1              if((*pbufcnt)!=ftcnt)
+  60   1              {       
+  61   2                      (*pbufcnt)++;                           //窗口数据未满
+  62   2                      return val;
+  63   2              }
+  64   1              else 
+  65   1              {
+  66   2                      for(i=0;i<ftcnt;i++)
+  67   2                      {       
+  68   3                              data_ram+=*(pbuf+i);
+  69   3                      }
+  70   2                      data_ram=data_ram/ftcnt;
+  71   2                      return ((int32u)data_ram);                      
+  72   2              }
+  73   1      }
+  74          //***********************************************************************/
+  75          // *功    能：一阶滤波
+  76          // *入    口：old_val，前一次滤波值；new_val，新值；filtercnt，滤波系数
+  77          // *出    口：一阶滤波计算后的值
+  78          // *备    注：0<filtercnt<256
+  79          // *函数性质：
+  80          //***********************************************************************/
+  81          
+  82          float Filter_1st (float old_val,int32u new_val, int8u filtercnt)
+  83          {       
+  84   1              return ((old_val*(filtercnt-1)+new_val)/filtercnt);
+  85   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    469    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       9
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

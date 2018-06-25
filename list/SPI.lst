@@ -1,0 +1,143 @@
+C51 COMPILER V9.01   SPI                                                                   06/01/2018 17:39:16 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE SPI
+OBJECT MODULE PLACED IN .\obj\SPI.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\SPI.C OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\li
+                    -st\SPI.lst) OBJECT(.\obj\SPI.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 项目名: 
+   3          * 文件名：  SPI.c
+   4          * 版　本：  v1.0
+   5          * 描  述：  
+   6          * 创建人：   
+   7          * 日  期：   
+   8          --------------------------------------------------------------------------
+   9          *当前版本:      v1.0
+  10          *修 改 人:
+  11          *日　  期:
+  12          ----------------------------------修改履历--------------------------------
+  13          1、
+  14          2、
+  15          3、
+  16          4、
+  17          ------------------------------------------------------------------------*/
+  18          #define   __SPI_C__
+  19          #include "_Include.h"
+  20          //***********************************************************************/
+  21          
+  22          
+  23          
+  24          void SPI_init(void)
+  25          {
+  26   1              int8u SfrPage = SFRPAGE;
+  27   1              SFRPAGE = ACTIVE_PAGE;
+  28   1      
+  29   1              
+  30   1              SPI0CFG |= 0x70; //配置spi的相位和极性，设置主模式
+  31   1              SPI0CN |= 0x09;  //4-wire and enable SPI0
+  32   1              SPI0CKR = 0x0B;// f=1MHz 
+  33   1      
+  34   1              SFRPAGE = SfrPage;
+  35   1      }
+  36          
+  37          void SPI_Read(int8u *dat,int8u num)
+  38          {
+  39   1              int8u i;
+  40   1              int8u temp[1] = {0x00};
+  41   1              
+  42   1              for(i = 0;i < num;i++)
+  43   1              {
+  44   2                      SPI_Write_INT(temp,1);
+  45   2                      delayxus();
+  46   2                      *dat = SPI0DAT;
+  47   2                      dat++;
+  48   2              }
+  49   1      }
+  50          
+  51          void SPI_Write(int8u* dat,int8u num)
+  52          {
+  53   1              int8u  i;
+  54   1      //      int8u temp=0x00;
+C51 COMPILER V9.01   SPI                                                                   06/01/2018 17:39:16 PAGE 2   
+
+  55   1              
+  56   1              for(i = 0;i < num;i++)
+  57   1              {
+  58   2                      while(!TXBMT);          //write the transmit buffer when the buffer is empty
+  59   2                      SPI0DAT = *dat;
+  60   2                      dat++;
+  61   2      //          while(!SPIF);
+  62   2              }
+  63   1      
+  64   1      }
+  65          
+  66          void SPI_Write_INT(int8u* dat,int8u num)
+  67          {
+  68   1              int8u  i;
+  69   1              int8u  temp=0x00;
+  70   1              
+  71   1              for(i = 0;i < num;i++)
+  72   1              {
+  73   2                      while(!TXBMT);          //write the transmit buffer when the buffer is empty
+  74   2                      SPI0DAT = *dat;
+  75   2                      dat++;
+  76   2      //          while(!SPIF);
+  77   2              }
+  78   1      
+  79   1      }
+  80          
+  81          int8u SensorSPI_Write (int8u dat)
+  82          {       int8u i;
+  83   1              int8u temp;
+  84   1              int8u temp1;
+  85   1              
+  86   1              SPI_SCLK=0;             delay_cyc(PERIOD);
+  87   1              SPI_CS=1;               delay_cyc(PERIOD);
+  88   1              SPI_CS=0;               delay_cyc(PERIOD);
+  89   1      
+  90   1              temp = dat;
+  91   1              for(i = 0;i < 16;i++)
+  92   1              {
+  93   2                      if(i<8)
+  94   2                      {
+  95   3                              if((temp&0x80)==0)SPI_MOSI=0;
+  96   3                              else              SPI_MOSI=1;
+  97   3                              delay_cyc(PERIOD);
+  98   3                              SPI_SCLK=1;             delay_cyc(PERIOD);                                                              
+  99   3                              SPI_SCLK=0;        
+ 100   3                              if(i==7)   delay_cyc(PERIOD);
+ 101   3                              temp<<=1;
+ 102   3                      }
+ 103   2                      else
+ 104   2                      {
+ 105   3                              SPI_SCLK = 1; 
+ 106   3                              temp1<<=1;
+ 107   3                              if(SPI_MISO==1) temp1 |=1;
+ 108   3                                                              delay_cyc(PERIOD);
+ 109   3                              SPI_SCLK=0;             delay_cyc(PERIOD);
+ 110   3                      }
+ 111   2              }
+ 112   1              SPI_CS=1;
+ 113   1              return temp1;   
+ 114   1      }
+ 115          
+
+C51 COMPILER V9.01   SPI                                                                   06/01/2018 17:39:16 PAGE 3   
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    284    ----
+   CONSTANT SIZE    =      1    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      11
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

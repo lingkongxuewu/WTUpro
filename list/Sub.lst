@@ -1,0 +1,726 @@
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE SUB
+OBJECT MODULE PLACED IN .\obj\Sub.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Sub.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\li
+                    -st\Sub.lst) OBJECT(.\obj\Sub.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  Sub.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：  
+   6          * 日  期：  
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define   __SUB_C__
+  18          #include  "_Include.h"
+  19          //***********************************************************************/
+  20          void Sub_16SBufSwitch (int16s* buf,int8u i,int8u j);
+  21          //***********************************************************************/
+  22          // *功    能：
+  23          // *入    口：
+  24          // *出    口：
+  25          // *备    注：
+  26          // *函数性质：32有符号位角度转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  27          //***********************************************************************/
+  28          void Comm_PutInt32sAd (int32s val)
+  29          {               
+  30   1              if(val<0)
+  31   1              {       val=-val;
+  32   2                      DispBuf[0]='-';
+  33   2              }
+  34   1              else
+  35   1              {       DispBuf[0]='+';
+  36   2              }
+  37   1              Sub_Int32u2Str(&DispBuf[1],val);
+  38   1              Comm_PutStr((int8u*)DispBuf,9); // 从DisBuf[]将XY的角度值存到发送缓冲区
+  39   1      }
+  40          //***********************************************************************/
+  41          // *功    能：
+  42          // *入    口：
+  43          // *出    口：
+  44          // *备    注：
+  45          // *函数性质：32有符号位转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  46          //***********************************************************************/
+  47          void Comm_PutInt32s (int32s val)
+  48          {
+  49   1              Sub_Int32s2Str(DispBuf,val);    // 将角度值转BCD ，存于DisBuf[]
+  50   1              Comm_PutStr((int8u*)DispBuf,8); // 从DisBuf[]将XY的角度值存到发送缓冲区
+  51   1      }
+  52          //***********************************************************************/
+  53          //***********************************************************************/
+  54          // *功    能：
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 2   
+
+  55          // *入    口：
+  56          // *出    口：
+  57          // *备    注：
+  58          // *函数性质：32无符号位转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  59          //***********************************************************************/
+  60          void Comm_PutInt32u (int32u val)
+  61          {
+  62   1              Sub_Int32u2Str(DispBuf,val);
+  63   1              Comm_PutStr((int8u*)(DispBuf+2),6);
+  64   1      }
+  65          //***********************************************************************/
+  66          // *功    能：
+  67          // *入    口：
+  68          // *出    口：
+  69          // *备    注：
+  70          // *函数性质：16有符号位转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  71          //***********************************************************************/
+  72          void Comm_PutInt16s (int16s val)
+  73          {
+  74   1              Sub_Int16s2Str(DispBuf,val);
+  75   1              Comm_PutStr((int8u*)DispBuf,6);
+  76   1      }
+  77          //***********************************************************************/
+  78          // *功    能：
+  79          // *入    口：
+  80          // *出    口：
+  81          // *备    注：
+  82          // *函数性质：16无符号位转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  83          //***********************************************************************/
+  84          void Comm_PutInt16u (int16u val)
+  85          {
+  86   1              Sub_Int16u2Str(DispBuf,val);
+  87   1              Comm_PutStr((int8u*)DispBuf,5);
+  88   1      }
+  89          //***********************************************************************/
+  90          // *功    能：
+  91          // *入    口：
+  92          // *出    口：
+  93          // *备    注：
+  94          // *函数性质：8位无符号位转BCD 值存DisBuf数组，后将BCD存于发送缓冲区
+  95          //***********************************************************************/
+  96          void Comm_PutInt8u (int8u val)
+  97          {
+  98   1              Sub_Int8u2Str(DispBuf,val);
+  99   1              Comm_PutStr((int8u*)DispBuf,3);
+ 100   1      }
+ 101          //***********************************************************************/
+ 102          //***********************************************************************/
+ 103          // *功    能：
+ 104          // *入    口：
+ 105          // *出    口：
+ 106          // *备    注：
+ 107          // *函数性质：将回车换行的ASCII值存TX缓冲区
+ 108          //***********************************************************************/
+ 109          void Comm_PutNewLine (void)
+ 110          {
+ 111   1              Comm_PutChar(0x0D);
+ 112   1              Comm_PutChar(0x0A);
+ 113   1      }
+ 114          //***********************************************************************/
+ 115          // *功    能：
+ 116          // *入    口：
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 3   
+
+ 117          // *出    口：
+ 118          // *备    注：
+ 119          // *函数性质：将回车换行的ASCII值存TX缓冲区
+ 120          //***********************************************************************/
+ 121          void Comm_PutNewLineSta (void)
+ 122          {
+ 123   1              Comm_PutChar(0x0D);
+ 124   1              Comm_PutChar(0x0A);
+ 125   1              Comm_SendSta();
+ 126   1      }
+ 127          //***********************************************************************/
+ 128          // *功    能：
+ 129          // *入    口：
+ 130          // *出    口：
+ 131          // *备    注：
+ 132          // *函数性质：Send "ok"
+ 133          //***********************************************************************/
+ 134          void Sub_SendOk (void)
+ 135          {       
+ 136   1              char* str={",OK"};
+ 137   1              Comm_PutStr((int8u*)str,3);
+ 138   1              Comm_PutNewLine();
+ 139   1              Comm_SendSta();
+ 140   1      }
+ 141          //***********************************************************************/
+ 142          void Sub_SendErr (void)
+ 143          {       char* str={"ERR"};
+ 144   1              
+ 145   1              
+ 146   1              Comm_PutStr((int8u*)str,3);
+ 147   1              Comm_PutNewLine();
+ 148   1              Comm_SendSta();
+ 149   1      }
+ 150          //***********************************************************************/
+ 151          void Sub_SendAngXY (void)
+ 152          {
+ 153   1              Comm_PutStr("X=",2);                                             //将字符存入发生缓冲区RingBufTx[COMM_TX_BUF_SIZE]
+ 154   1              Comm_PutInt32s(GetXAngAllSetVal());                     //(温补后的角度+系统、用户、安装角后的角度）转BCD
+ 155   1              Comm_PutStr("  ",2);
+ 156   1      //      Comm_PutNewLine();                                                      //回车换行
+ 157   1              Comm_PutStr("Y=",2);
+ 158   1              Comm_PutInt32s(GetYAngAllSetVal());                     //
+ 159   1      
+ 160   1              Comm_PutNewLine();
+ 161   1              Comm_SendSta();
+ 162   1      }
+ 163          //***********************************************************************/
+ 164          void Sub_SendAngXYP (void)
+ 165          {       
+ 166   1              Comm_PutStr("X=",2);
+ 167   1              Comm_PutInt32s(GetXAngAllSetVal());     
+ 168   1              Comm_PutStr("  ",2);    
+ 169   1      //      Comm_PutNewLine();
+ 170   1              Comm_PutStr("Y=",2);
+ 171   1              Comm_PutInt32s(GetYAngAllSetVal());     
+ 172   1              Comm_PutStr("  ",2);    
+ 173   1      //      Comm_PutNewLine();
+ 174   1              Comm_PutStr("P=",2);
+ 175   1              Comm_PutInt32s(GetAngP());
+ 176   1              Comm_PutNewLine();
+ 177   1              Comm_SendSta();
+ 178   1      }
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 4   
+
+ 179          //***********************************************************************/
+ 180          void Sub_SendAdcTXY (int16u temp,int32s x,int32s y)
+ 181          {       
+ 182   1              Comm_PutStr("t,",2);    Comm_PutInt16u(temp);
+ 183   1              Comm_PutStr(",x,",3);   Comm_PutInt32u(x);
+ 184   1              Comm_PutStr(",y,",3);   Comm_PutInt32u(y);
+ 185   1              Comm_PutNewLine();
+ 186   1              Comm_SendSta();
+ 187   1      }
+ 188          //***********************************************************************/
+ 189          void Sub_SendMcuT(int16s temp,int16u tadc)
+ 190          {       
+ 191   1              Comm_PutStr("mt,",3);   Comm_PutInt16s(temp);
+ 192   1              Comm_PutStr(",adc,",5); Comm_PutInt16u(tadc);
+ 193   1              Comm_PutNewLineSta();
+ 194   1      } 
+ 195          //***********************************************************************/
+ 196          void Sub_SendPrmtAll(void)
+ 197          {
+ 198   1              Comm_PutStr("ST,",3);   Comm_PutInt8u(Get_McuTemp());
+ 199   1              
+ 200   1              Comm_PutStr(",x,",3);   
+ 201   1                                                              Comm_PutInt32u(GetXFtVal());            //      滤波后的值 
+ 202   1              Comm_PutChar(',');              
+ 203   1                                                              Comm_PutInt32u(GetXOftVal());           //Comm_PutInt32u(Adc_GetXVal());测试用  
+ 204   1              Comm_PutChar(',');              
+ 205   1                                                              Comm_PutInt32s(GetXAng());                                 
+ 206   1      
+ 207   1              Comm_PutStr(",y,",3);   
+ 208   1                                                              Comm_PutInt32u(GetYFtVal());            //
+ 209   1              Comm_PutChar(',');              
+ 210   1                                                              Comm_PutInt32u(GetYOftVal());           //Comm_PutInt32u(Adc_GetYVal());测试用            
+ 211   1              Comm_PutChar(',');              
+ 212   1                                                              Comm_PutInt32s(GetYAng());
+ 213   1                                                              
+ 214   1              Comm_PutChar(',');              
+ 215   1                                                              Comm_PutInt8u(GetAngXCalCnt());
+ 216   1              Comm_PutNewLine();
+ 217   1              Comm_SendSta();
+ 218   1      }
+ 219          //***********************************************************************/
+ 220          void Sub_SendAngXCal (int8u i)
+ 221          {       
+ 222   1              Comm_PutStr("X,",2);    Comm_PutInt8u(i);
+ 223   1              Comm_PutStr(",",1);        Comm_PutInt32u(GetAngXCalAdcVal(i+0));                
+ 224   1      
+ 225   1              Comm_PutStr(",K,",3);   Comm_PutInt16s(100000000*Ang_Xcal.prm_k[i+0]); 
+ 226   1              Comm_PutStr(",A,",3);   Comm_PutInt16s(100000000*Ang_Xcal.prm_a[i+0]); 
+ 227   1              Comm_PutNewLine();
+ 228   1              Comm_SendSta();
+ 229   1      }
+ 230          //***********************************************************************/
+ 231          void Sub_SendAngYCal (int8u i)
+ 232          {       
+ 233   1              Comm_PutStr("Y,",2);    Comm_PutInt8u(i);
+ 234   1              Comm_PutChar(',');              Comm_PutInt32u(GetAngYCalAdcVal(i+0));        
+ 235   1              Comm_PutStr(",K,",3);   Comm_PutInt16s(100000000*Ang_Ycal.prm_a[i+0]); 
+ 236   1              Comm_PutStr(",A,",3);   Comm_PutInt16s(100000000*Ang_Ycal.prm_a[i+0]); 
+ 237   1      
+ 238   1              Comm_PutNewLine();
+ 239   1              Comm_SendSta();
+ 240   1      }
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 5   
+
+ 241          //***********************************************************************/
+ 242          void Sub_SendTempCal (int8u i)
+ 243          {       
+ 244   1              Comm_PutStr("t,",2);    Comm_PutInt8u(i);
+ 245   1              Comm_PutChar(',');              Comm_PutInt16u(GetTempXCalTempVal(i+0)); 
+ 246   1              
+ 247   1              Comm_PutStr(",x,",3);   Comm_PutInt32sAd(GetTempXCalAdcVal(i+0));
+ 248   1              Comm_PutStr(",y,",3);   Comm_PutInt32sAd(GetTempYCalAdcVal(i+0));         
+ 249   1      
+ 250   1              Comm_PutStr(",XK,",4);  Comm_PutInt32sAd(1000*Temp_Xcal.prm_k[i+0]);    //Comm_PutInt16s(1000*Temp_Xcal.prm_k
+             -[i+0]);
+ 251   1              Comm_PutStr(",A,",3);   Comm_PutInt32sAd(Temp_Xcal.prm_a[i+0]);
+ 252   1              Comm_PutStr(",YK,",4);  Comm_PutInt32sAd(1000*Temp_Ycal.prm_k[i+0]);            //Comm_PutInt16s(1000*Temp_Ycal.prm_
+             -k[i+0]);
+ 253   1              Comm_PutStr(",A,",3);   Comm_PutInt32sAd(Temp_Ycal.prm_a[i+0]);
+ 254   1      
+ 255   1              Comm_PutNewLine();
+ 256   1              Comm_SendSta();
+ 257   1      }
+ 258          //***********************************************************************/
+ 259          void Sub_SendOffset (int32s val)
+ 260          {       
+ 261   1              Comm_PutInt32s(val);
+ 262   1              Comm_PutNewLine();
+ 263   1              Comm_SendSta();
+ 264   1      }
+ 265          //***********************************************************************/
+ 266          void Sub_SendID (void)
+ 267          {
+ 268   1              Comm_PutInt16u(MenuId);                 Comm_PutChar(',');
+ 269   1              Comm_PutInt16u(GetAngXCalCnt());Comm_PutChar(',');                      //HXL   整合更新 12/8/26 ？
+ 270   1              Comm_PutInt16u(ACalXId);                Comm_PutChar(',');                      //?
+ 271   1              Comm_PutInt16u(ACalYId);                Comm_PutChar(',');                      //?
+ 272   1              Comm_PutInt16u(GetTempXCalCnt());                                                       //HXL   整合更新 12/8/26 
+ 273   1              Comm_PutNewLine();
+ 274   1              Comm_SendSta();
+ 275   1      }
+ 276          //***********************************************************************/
+ 277          void Sub_SendSoftVer (void)
+ 278          {               
+ 279   1              Comm_PutStr("224,0114,20171124",17);    
+ 280   1              Comm_PutNewLine();
+ 281   1              Comm_SendSta();
+ 282   1      }
+ 283          //***********************************************************************/
+ 284          void Sub_SendSysNum (void)
+ 285          {                       
+ 286   1              Comm_PutStr("sn,",3);
+ 287   1              Comm_PutStr(SystemVer,SystemVerNum);    
+ 288   1              Comm_PutNewLine();
+ 289   1              Comm_SendSta();
+ 290   1      }
+ 291          //***********************************************************************/
+ 292          void Sub_SendTCalTest (void)
+ 293          {       
+ 294   1              int32s  xdata TempX;
+ 295   1              int32s  xdata TempY;
+ 296   1      
+ 297   1              TempX = accel_x.GetTempOffset(Get_McuTemp());   //温度补偿
+ 298   1              TempY = accel_y.GetTempOffset(Get_McuTemp());   //温度补偿        HXL 12/8/27
+ 299   1      
+ 300   1              Comm_PutInt16u(TempA);  Comm_PutChar(',');
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 6   
+
+ 301   1              Comm_PutInt32sAd(TempX);        Comm_PutChar(',');
+ 302   1              Comm_PutInt32sAd(TempY);
+ 303   1              Comm_PutNewLine();
+ 304   1              Comm_SendSta();
+ 305   1              
+ 306   1              TempA++;
+ 307   1      }
+ 308          //***********************************************************************/
+ 309          // *功    能：
+ 310          // *入    口：
+ 311          // *出    口：
+ 312          // *备    注：
+ 313          // *函数性质：
+ 314          //***********************************************************************/
+ 315          int8u Sub_Str2Int32sAng (int32s *val,int8u* str)
+ 316          {       
+ 317   1              int32s xdata temp;
+ 318   1              
+ 319   1              if((str[1]<'0')||(str[1]>'9'))return FALSE;
+ 320   1              if((str[2]<'0')||(str[2]>'9'))return FALSE;
+ 321   1              if(str[3]!='.')                           return FALSE;
+ 322   1              if((str[4]<'0')||(str[4]>'9'))return FALSE;
+ 323   1              if((str[5]<'0')||(str[5]>'9'))return FALSE;
+ 324   1              if((str[6]<'0')||(str[6]>'9'))return FALSE;
+ 325   1              if((str[7]<'0')||(str[7]>'9'))return FALSE;
+ 326   1              temp=(int32s)(str[1]-'0')*100000+(int32s)(str[2]-'0')*10000+(str[4]-'0')*1000+(str[5]-'0')*100+(str[6]-'0
+             -')*10+(str[7]-'0'); //yyc17-12-13修改str[2]有可能越界的问题
+ 327   1              if(str[0]=='+')
+ 328   1              {       *val = temp;
+ 329   2                      return TRUE;
+ 330   2              }
+ 331   1              else if(str[0]=='-')
+ 332   1              {       *val = -temp;
+ 333   2                      return TRUE;
+ 334   2              }
+ 335   1              return FALSE;
+ 336   1      }
+ 337          //***********************************************************************/
+ 338          int8u Sub_Str2Int32s (int32s *val,int8u* str)
+ 339          {       int32u xdata temp;
+ 340   1              int8u xdata i;
+ 341   1      
+ 342   1      
+ 343   1              for(i=1;i<9;i++)
+ 344   1              {       if((str[i]<'0')||(str[i]>'9'))
+ 345   2                      return FALSE;
+ 346   2              }
+ 347   1      //      temp=(str[1]-'0')*10000000+(str[2]-'0')*1000000+(str[3]-'0')*100000+(int32u)(str[4]-'0')*10000+(int32u)
+             -(str[5]-'0')*1000
+ 348   1      //               +(int32u)(str[6]-'0')*100+(int32u)(str[7]-'0')*10+(int32u)(str[8]-'0');
+ 349   1                       
+ 350   1              temp=((str[1]-'0')*1000+(str[2]-'0')*100+(str[3]-'0')*10+(str[4]-'0'))*(int32u)10000+
+ 351   1                    (str[5]-'0')*1000+(str[6]-'0')*100+(str[7]-'0')*10+(str[8]-'0');
+ 352   1                       
+ 353   1                       
+ 354   1                       
+ 355   1      //测试用
+ 356   1      //      temp = (str[1]-'0')*10000000;
+ 357   1      //      temp +=(str[2]-'0')*1000000;
+ 358   1      //      temp +=(str[3]-'0')*100000;
+ 359   1      //      temp +=(str[4]-'0')*10000;
+ 360   1      //      temp +=(str[5]-'0');
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 7   
+
+ 361   1      //      temp +=(str[6]-'0');
+ 362   1      //      temp +=(str[7]-'0');
+ 363   1      //      temp +=(str[8]-'0');    
+ 364   1      //测试结束               
+ 365   1              
+ 366   1              if(str[0]=='+')
+ 367   1              {       *val = temp;
+ 368   2                      return TRUE;
+ 369   2              }
+ 370   1              else if(str[0]=='-')
+ 371   1              {       *val = -temp;
+ 372   2                      return TRUE;
+ 373   2              }
+ 374   1              return FALSE;
+ 375   1      }
+ 376          //***********************************************************************/
+ 377          //int8u Sub_Str2Int16s (int16s *val,int8u* str)
+ 378          //{     int16u temp;
+ 379          //      if(FALSE==Sub_Str2Int16u(&temp,&str[1]))return (FALSE);
+ 380          //      
+ 381          //      if(str[0]=='+')
+ 382          //      {       *val = temp;
+ 383          //              return TRUE;
+ 384          //      }
+ 385          //      else if(str[0]=='-')
+ 386          //      {       *val = -temp;
+ 387          //              return TRUE;
+ 388          //      }
+ 389          //      return FALSE;
+ 390          //}
+ 391          //***********************************************************************/
+ 392          int8u Sub_Str2Int16u (int16u *val,int8u* str)
+ 393          {       int8u xdata i;
+ 394   1              
+ 395   1              
+ 396   1              for(i=0;i<5;i++)
+ 397   1              {       if((str[i]<'0')||(str[i]>'9'))
+ 398   2                      return FALSE;
+ 399   2              }
+ 400   1              *val=(str[0]-'0')*10000+(str[1]-'0')*1000+(str[2]-'0')*100+(str[3]-'0')*10+(str[4]-'0');
+ 401   1              return TRUE;
+ 402   1      }
+ 403          //***********************************************************************/
+ 404          int8u Sub_Str2Int8u (int8u* str)
+ 405          {       int8u xdata val;        
+ 406   1              
+ 407   1              if((str[0]<'0')||(str[0]>'9'))return(100);
+ 408   1              if((str[1]<'0')||(str[1]>'9'))return(100);
+ 409   1              val=(str[0]-'0')*10+(str[1]-'0');
+ 410   1              return  val;
+ 411   1      }
+ 412          //***********************************************************************/
+ 413          int8s Sub_Str2Int8s (int8u* str)
+ 414          {
+ 415   1              int8s xdata temp;
+ 416   1              temp = Sub_Str2Int8u(&str[1]);
+ 417   1              
+ 418   1              if(str[0]=='-')
+ 419   1              {       
+ 420   2                      temp = -temp;
+ 421   2              }
+ 422   1              return temp;
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 8   
+
+ 423   1      }
+ 424          //***********************************************************************/
+ 425          void Sub_Int32s2Str (char* s,int32s val)
+ 426          {
+ 427   1              if(val<0)
+ 428   1              {       
+ 429   2                      val=-val;
+ 430   2                      s[0]='-';
+ 431   2              }
+ 432   1              else
+ 433   1              {       
+ 434   2                      s[0]='+';
+ 435   2              }
+ 436   1              if(val>999999)val-=1000000;
+ 437   1              
+ 438   1              s[1] = val/100000+'0';
+ 439   1              val  = val%100000;
+ 440   1              s[2] = val/10000+'0';
+ 441   1              val  = val%10000;
+ 442   1              s[3] = '.';
+ 443   1              s[4] = val/1000+'0';
+ 444   1              val  = val%1000;        
+ 445   1              s[5] = val/100+'0';
+ 446   1              val  = val%100;
+ 447   1              s[6] = val/10+'0';
+ 448   1              s[7] = val%10+'0';
+ 449   1      }
+ 450          //***********************************************************************/
+ 451          //void Sub_Int32u2Str (char* s,int32u val,int8u num)
+ 452          void Sub_Int32u2Str (char* s,int32u val)
+ 453          {       
+ 454   1              if(val>16777215)val = 16777215;         //数值溢出2013-7-15 11:56AM修改增加
+ 455   1              s[0] = val/10000000+'0';
+ 456   1              val  = val%10000000;
+ 457   1              s[1] = val/1000000+'0';
+ 458   1              val  = val%1000000;     
+ 459   1              s[2] = val/100000+'0';
+ 460   1              val  = val%100000;      
+ 461   1              s[3] = val/10000+'0';
+ 462   1              val  = val%10000;
+ 463   1              s[4] = val/1000+'0';
+ 464   1              val  = val%1000;
+ 465   1              s[5] = val/100+'0';
+ 466   1              val  = val%100;
+ 467   1              s[6] = val/10+'0';
+ 468   1              s[7] = val%10+'0';
+ 469   1      }
+ 470          //***********************************************************************/
+ 471          void Sub_Int16s2Str (char* s,int16s val)
+ 472          {
+ 473   1              if(val<0)
+ 474   1              {       val=-val;
+ 475   2                      s[0]='-';
+ 476   2              }
+ 477   1              else
+ 478   1              {       s[0]='+';
+ 479   2              }
+ 480   1              Sub_Int16u2Str(&s[1],val);
+ 481   1      }
+ 482          //***********************************************************************/
+ 483          void Sub_Int16u2Str (char* s,int16u val)
+ 484          {
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 9   
+
+ 485   1              s[0] = val/10000+'0';
+ 486   1              val  = val%10000;
+ 487   1              s[1] = val/1000+'0';
+ 488   1              val  = val%1000;
+ 489   1              s[2] = val/100+'0';
+ 490   1              val  = val%100;
+ 491   1              s[3] = val/10+'0';
+ 492   1              s[4] = val%10+'0';
+ 493   1      }
+ 494          //***********************************************************************/
+ 495          void Sub_Int8u2Str (char* s,int8u val)
+ 496          {
+ 497   1              s[0] = val/100+'0';
+ 498   1              val  = val%100;
+ 499   1              s[1] = val/10+'0';
+ 500   1              s[2] = val%10+'0';
+ 501   1      }
+ 502          //***********************************************************************/
+ 503          // *功    能：
+ 504          // *入    口：
+ 505          // *出    口：
+ 506          // *备    注：
+ 507          // *函数性质：
+ 508          //***********************************************************************/
+ 509          /*
+ 510          void Sub_TVCalValCnt (int16u temp0,int16u temp1,int16s adc0,int16s adc1,float* a,float* k)
+ 511          {
+ 512                  *k = ((float)adc1-adc0)/((float)temp1-temp0);
+ 513                  *a = (float)adc0- *k * temp0;
+ 514          }
+ 515          */
+ 516          //***********************************************************************/
+ 517          /*
+ 518          void Sub_AngCalValCnt (int16u adc0,int16u adc1,int32s ang0,int32s ang1,float* a,float* k)
+ 519          {       float _ang0=(PI*ang0)/180000.0;
+ 520                  float _ang1=(PI*ang1)/180000.0;
+ 521                  
+ 522                  *k = (sin(_ang1)-sin(_ang0))/(int16s)(adc1-adc0);
+ 523                  *a = sin(_ang0) - *k * adc0;
+ 524          }
+ 525          */   //HXL 12/8/28
+ 526          //***********************************************************************/
+ 527          
+ 528          
+ 529          
+ 530          /*
+ 531          void Sub_AngCalValGet (float* a,float* k,int16u adc,int8u tag)
+ 532          {       int8u i;
+ 533                  
+ 534                  
+ 535                  if(tag==0)
+ 536                  {       //for(i=0;i<ACalN-2;i++)                                //HXL 12/8/26  原來的
+ 537                          for(i=0;i<(GetAngXCalCnt()-2);i++)              //HXL 12/8/26  整合更新
+ 538                          {
+ 539          //                      if(adc<ACalXAdc[i+1])break;             
+ 540                                  if(adc<GetAngXCalAdcVal(i+1))break;     //HXL 12/8/27  整合
+ 541                                  
+ 542                                  更新
+ 543                          }
+ 544          //              *a=APrmtXA[i];  
+ 545          //              *k=APrmtXK[i];
+ 546                          *a=Ang_Xcal.prm_a[i]; //HXL             12/8/27
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 10  
+
+ 547                          *k=Ang_Xcal.prm_k[i]; //HXL             12/8/27
+ 548                  }
+ 549                  else
+ 550                  {       //for(i=0;i<ACalN-2;i++)
+ 551                          for(i=0;i<(GetAngYCalCnt()-2);i++)              //HXL 12/8/26  整合更新
+ 552                          {
+ 553          //                      if(adc<ACalYAdc[i+1])break;
+ 554                                  if(adc<GetAngYCalAdcVal(i+1))break;     //HXL 12/8/27  整合更新 
+ 555                          }
+ 556          //              *a=APrmtYA[i];  
+ 557          //              *k=APrmtYK[i];
+ 558                          *a=Ang_Ycal.prm_a[i]; //HXL             12/8/27
+ 559                          *k=Ang_Ycal.prm_k[i]; //HXL             12/8/27
+ 560                                          
+ 561                  }
+ 562          }
+ 563          */
+ 564          //***********************************************************************/
+ 565          // *功    能：
+ 566          // *入    口：
+ 567          // *出    口：
+ 568          // *备    注：
+ 569          // *函数性质：
+ 570          //***********************************************************************/
+ 571          void Sub_SBufSwitch (int32s* buf,int8u i,int8u j)
+ 572          {       int32s xdata temp;
+ 573   1              
+ 574   1              
+ 575   1              temp=buf[i];
+ 576   1              buf[i]=buf[j];
+ 577   1              buf[j]=temp;
+ 578   1      }
+ 579          //***********************************************************************/
+ 580          
+ 581          void Sub_32uBufSwitch (int32u* buf,int8u i,int8u j)
+ 582          {       int32u xdata temp;
+ 583   1              
+ 584   1              
+ 585   1              temp=buf[i];
+ 586   1              buf[i]=buf[j];
+ 587   1              buf[j]=temp;
+ 588   1      }
+ 589           //HXL 12/8/28 2013-6-13 11:28AM孙娜修改增加
+ 590          //***********************************************************************/
+ 591          
+ 592          void Sub_16SBufSwitch (int16s* buf,int8u i,int8u j)
+ 593          {       int16s xdata temp;
+ 594   1              
+ 595   1              
+ 596   1              temp=buf[i];
+ 597   1              buf[i]=buf[j];
+ 598   1              buf[j]=temp;
+ 599   1      }
+ 600           //HXL 12/8/28 
+ 601          //***********************************************************************/
+ 602          void Sub_UBufSwitch (int16u* buf,int8u i,int8u j)
+ 603          {       int16u xdata temp;
+ 604   1              
+ 605   1              
+ 606   1              temp=buf[i];
+ 607   1              buf[i]=buf[j];
+ 608   1              buf[j]=temp;
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 11  
+
+ 609   1      }
+ 610          //***********************************************************************/
+ 611          void Sub_BufBubble (int32s* id,int32u* x,int8u n)
+ 612          {       int8u xdata  i,j;
+ 613   1              
+ 614   1              
+ 615   1              for(i=0;i<n;i++)
+ 616   1              {       for(j=n-1;j>i;j--)
+ 617   2                      {       if(id[i]>id[j])
+ 618   3                              {       Sub_SBufSwitch(id,i,j);
+ 619   4                                      Sub_32uBufSwitch(x,i,j);
+ 620   4                              }
+ 621   3                      }
+ 622   2              }
+ 623   1      }
+ 624          //***********************************************************************/
+ 625          void Sub_BufBubble2 (int16u* id,int32s* x,int32s* y,int8u n)
+ 626          //void Sub_BufBubble2 (int16u* id,int32s* x,int8u n)
+ 627          {       int8u xdata i,j;
+ 628   1      
+ 629   1      
+ 630   1              for(i=0;i<n;i++)
+ 631   1              {       for(j=n-1;j>i;j--)
+ 632   2                      {       if(id[i]>id[j])
+ 633   3                              {       Sub_UBufSwitch(id,i,j);
+ 634   4                                      Sub_SBufSwitch(x,i,j);
+ 635   4                                      Sub_SBufSwitch(y,i,j);
+ 636   4                              }
+ 637   3                      }
+ 638   2              }
+ 639   1      }
+ 640            //HXL 12/8/28
+ 641          //***********************************************************************/
+ 642          void Sub_BufBubble16s(int16s* id,int16u* x,int8u n)
+ 643          {       int8u xdata  i,j;
+ 644   1              
+ 645   1              
+ 646   1              for(i=0;i<n;i++)
+ 647   1              {       for(j=n-1;j>i;j--)
+ 648   2                      {       if(id[i]>id[j])
+ 649   3                              {       Sub_16SBufSwitch(id,i,j);
+ 650   4                                      Sub_UBufSwitch(x,i,j);
+ 651   4                              }
+ 652   3                      }
+ 653   2              }
+ 654   1      }  
+ 655          //***********************************************************************/
+ 656          void Sub_SysRst (void)
+ 657          {       int8u SfrPage_ = SFRPAGE;
+ 658   1              
+ 659   1              
+ 660   1              SFRPAGE = ACTIVE_PAGE;
+ 661   1              RSTSRC|=0x10;
+ 662   1              SFRPAGE = SfrPage_;
+ 663   1      }
+ 664          //***********************************************************************/
+ 665          int8u Sub_StralarmCheck(int32s *val,int8u* str)
+ 666          {
+ 667   1              if((str[0]=='H')||(str[0]=='L'))
+ 668   1              {
+ 669   2                      *val=str[0];
+ 670   2                      return TRUE;
+C51 COMPILER V9.01   SUB                                                                   06/01/2018 17:39:16 PAGE 12  
+
+ 671   2              }
+ 672   1              else
+ 673   1              {
+ 674   2                      return FALSE;
+ 675   2              }
+ 676   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   4278    ----
+   CONSTANT SIZE    =     93    ----
+   XDATA SIZE       =   ----      38
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----     107
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

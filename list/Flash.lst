@@ -1,0 +1,538 @@
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE FLASH
+OBJECT MODULE PLACED IN .\obj\Flash.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Flash.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\
+                    -list\Flash.lst) OBJECT(.\obj\Flash.obj)
+
+line level    source
+
+   1          /*--------------------------------ÎÄ*¼þ*ÐÅ*Ï¢-----------------------------
+   2          * ÎÄ¼þÃû£º  Flash.c
+   3          * °æ¡¡±¾£º  v1.0
+   4          * Ãè  Êö£º  100TË«Öá ÕûºÏºóµÄ°æ±¾
+   5          * ´´½¨ÈË£º   
+   6          * ÈÕ  ÆÚ£º   
+   7          --------------------------------------------------------------------------
+   8          *µ±Ç°°æ±¾:      v1.0
+   9          *ÐÞ ¸Ä ÈË:
+  10          *ÈÕ¡¡  ÆÚ:
+  11          ----------------------------------ÐÞ¸ÄÂÄÀú--------------------------------
+  12          1¡¢
+  13          2¡¢
+  14          3¡¢
+  15          4¡¢
+  16          ------------------------------------------------------------------------*/
+  17          #define   __FLASH_C__
+  18          #include  "_Include.h"
+  19          /***********************************************************************/
+  20          static void Ram_CalDataInit (void);
+  21          static void Ram_CalData2Buf (int8u);
+  22          static void Ram_Buf2CalData (int8u);
+  23          static void FlashArea_User (void) ;
+  24          static int8u Flash_CheckSum (int8u *addr,int16u n);
+  25          static int8u FlashChk (void);
+  26          static  void  Ram_CalDataInit_User(void);
+  27          static  void Flash_PageErase (int16u addr);
+  28          static  void Flash_BufWr (int16u addr,char* buf,int16u n);
+  29          static  void Flash_BufRd (int16u addr,char* buf,int16u n);
+  30          static  void FlashUpdate (int16u addr,int8u* buf,int16u n);
+  31          static  void Flash_CalDataUpdate_User (int8u page,int16u addr,int8u* buf,int16u n);
+  32          
+  33          
+  34          //***********************************************************************/
+  35          // *¹¦    ÄÜ£ºFlash calibrate Init Ð£×¼Êý¾Ý³õÊ¼»¯
+  36          // *Èë    ¿Ú£º
+  37          // *³ö    ¿Ú£º
+  38          // *±¸    ×¢£º
+  39          // *º¯ÊýÐÔÖÊ£º
+  40          //***********************************************************************/
+  41          void Flash_CalDataInit (void)
+  42          {
+  43   1          int8u SfrPage_ = SFRPAGE;
+  44   1          Flash_BufRd(FLASH_SYS,DispBuf,FLASH_BUF_NUM);               //Reading Form FLASH_SYS ¶ÁÏµÍ³Êý¾Ý
+  45   1          if(OK != FlashChk())                                        //ÅÐ¶ÏÐ£Ñé×Ö 0x85
+  46   1          {
+  47   2              Ram_CalDataInit();                                      //ÄÚ´æÊý¾Ý³õÊ¼»¯
+  48   2              Flash_CalDataUpdate();                                  //½«ÄÚ´æµÄÊý¾ÝUpdateµ½Flash
+  49   2          }
+  50   1          else
+  51   1          {
+  52   2              Ram_Buf2CalData(1);                                     //½«¶Á³öµÄÏµÍ³Êý¾Ý±£´æµ½Ïà¹ØÄÚ´æ
+  53   2              Flash_BufRd(FLASH_TEMP,DispBuf,FLASH_BUF_NUM);          //Reading Form FLASH_USER ¶ÁÁÙÊ±Êý¾Ý
+  54   2              if((OK != FlashChk())||(DispBuf[1] != Flash_CheckSum((int8u*)(&DispBuf[2]),(FLASH_BUF_NUM-2))))
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 2   
+
+  55   2              {
+  56   3                 FlashArea_User();                                    //ÅÐ¶ÏUSERÇøÓò
+  57   3              }
+  58   2              else
+  59   2              {
+  60   3                  Flash_BufRd(FLASH_USER,DispBuf,FLASH_BUF_NUM);      //È¡³öÓÃ»§ÇøÓòµÄÊý¾Ý
+  61   3                  if((OK != FlashChk())||(DispBuf[1] != Flash_CheckSum((int8u*)(&DispBuf[2]),(FLASH_BUF_NUM-2)))
+             -)
+  62   3                  {
+  63   4                     Flash_BufRd(FLASH_TEMP,DispBuf,FLASH_BUF_NUM);
+  64   4                     Ram_Buf2CalData(2);                              //¶Á³öÁÙÊ±ÇøÓòµÄÊý¾Ý±£´æµ½Ïà¹ØÄÚ´æ
+  65   4                     Flash_CalDataUpdate_User (2,FLASH_USER,&DispBuf[0],FLASH_BUF_NUM);      
+  66   4                  }                                                                                                    //USERµÄÊý¾ÝÒì³£Ôò ½«TEMP µÄÊý¾Ý UPDATE µ½USER ÇøÓò            
+  67   3                  else
+  68   3                  {
+  69   4                      Flash_BufRd(FLASH_TEMP,DispBuf,FLASH_BUF_NUM);
+  70   4                      Ram_Buf2CalData(2);                             //¶Á³öÁÙÊ±ÇøÓòµÄÊý¾Ý±£´æµ½Ïà¹ØÄÚ´æ
+  71   4                  }
+  72   3               }
+  73   2      
+  74   2            }
+  75   1      
+  76   1          ACalXId=GetAngXCalCnt();                                    //»ñÈ¡xÖáÐ£×¼µã
+  77   1          ACalYId=GetAngYCalCnt();                                    //»ñÈ¡yÖáÐ£×¼µã  
+  78   1      
+  79   1          MenuId=MOD_X_CAL;
+  80   1          Adc_XCalStop();                                              //Í¨¹ý¶ÁFlashµÄÊý¾Ýµ÷ÓÃÐ£×¼½áÊøº¯Êý Ëã³öA
+             -,K
+  81   1      
+  82   1          MenuId=MOD_Y_CAL;
+  83   1          Adc_YCalStop();
+  84   1      
+  85   1          MenuId=MOD_T_CAL;
+  86   1          Temp_CalStop();                     //ÎÂ¶È²¹³¥Êý¾Ý³õÊ¼»¯
+  87   1          
+  88   1          McuT_CalStop();                     //ÎÂ¶ÈÐ£×¼Êý¾Ý³õÊ¼»¯
+  89   1      
+  90   1      
+  91   1              MainTime4Cnt = SendSpeed[SendSpeedNum];                                          
+  92   1      
+  93   1          SFRPAGE = CONFIG_PAGE;
+  94   1          SBRL0   = -(SYSCLK / Braud[Braud_Num] / 2);                 //ÉèÖÃ²¨ÌØÂÊ   SFRPAGE=0x0F     SBRL0 = -(SYS
+             -CLK / BAUDRATE / 2);
+  95   1      
+  96   1          SFRPAGE = SfrPage_;
+  97   1              //Braud[Braud_Num]
+  98   1      }
+  99          //***********************************************************************/
+ 100          // *¹¦    ÄÜ£ºFlash Update
+ 101          // *Èë    ¿Ú£º
+ 102          // *³ö    ¿Ú£º
+ 103          // *±¸    ×¢£º ÏµÍ³ÓÃ»§ÃüÁî ¶ÔÓ¦´Ë²Ù×÷
+ 104          // *º¯ÊýÐÔÖÊ£º
+ 105          //***********************************************************************/
+ 106          void Flash_CalDataUpdate (void)
+ 107          {
+ 108   1          Ram_CalData2Buf(1);
+ 109   1          FlashUpdate(FLASH_SYS,&DispBuf[0],FLASH_BUF_NUM);          //´æÏµÍ³²ÎÊýµ½Flash
+ 110   1          Ram_CalData2Buf(2);                                        //´æÓÃ»§²ÎÊýµ½Flash
+ 111   1          FlashUpdate(FLASH_USER,&DispBuf[0],FLASH_BUF_NUM);
+ 112   1          FlashUpdate(FLASH_TEMP,&DispBuf[0],FLASH_BUF_NUM);
+ 113   1      }
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 3   
+
+ 114          void Flash_UserDataUpdate(void)
+ 115          {
+ 116   1      
+ 117   1          Flash_CalDataUpdate_User (2,FLASH_TEMP,&DispBuf[0],FLASH_BUF_NUM);  
+ 118   1          Flash_CalDataUpdate_User (2,FLASH_USER,&DispBuf[0],FLASH_BUF_NUM);  
+ 119   1      
+ 120   1      }
+ 121          //***********************************************************************/
+ 122          void FlashUpdate (int16u addr,int8u* buf,int16u n)
+ 123          {
+ 124   1          bit  ea_temp = EA;
+ 125   1          EA    = 0;
+ 126   1      
+ 127   1          Flash_PageErase(addr);
+ 128   1          delay_ms(250);
+ 129   1          Flash_BufWr(addr,buf,n);
+ 130   1              Flash_BufWr(0xFBFF,(int8u*)0x00,1);
+ 131   1      
+ 132   1          EA = ea_temp;
+ 133   1      }
+ 134          
+ 135          //***********************************************************************/
+ 136          // *¹¦    ÄÜ£º
+ 137          // *Èë    ¿Ú£º
+ 138          // *³ö    ¿Ú£º
+ 139          // *±¸    ×¢£º Update Flash User/Temp
+ 140          // *º¯ÊýÐÔÖÊ£º
+ 141          //***********************************************************************/
+ 142          void  Flash_CalDataUpdate_User (int8u page,int16u addr,int8u* buf,int16u n)
+ 143          {
+ 144   1      
+ 145   1          int8u xdata sum;
+ 146   1          char code * data pread;                                 // FLASH read pointer
+ 147   1          pread = (char code *)(addr+1);
+ 148   1      
+ 149   1          sum = *pread;                                           // È¡³öFLASH ÖÐµÄCheckSum
+ 150   1          Ram_CalData2Buf(page);                                  // ½«²ÎÊý±£´æµ½»º´æÇø
+ 151   1      
+ 152   1          if(sum == DispBuf[1])return;                            // ÅÐ¶ÏÇ°ºóµÄCheckSum ÊÇ·ñÏàµÈ
+ 153   1          FlashUpdate(addr,buf,n);
+ 154   1      }
+ 155          //***********************************************************************/
+ 156          // *¹¦    ÄÜ£º
+ 157          // *Èë    ¿Ú£º
+ 158          // *³ö    ¿Ú£º
+ 159          // *±¸    ×¢£º
+ 160          // *º¯ÊýÐÔÖÊ£º
+ 161          //***********************************************************************/
+ 162          static void Ram_CalDataInit (void)
+ 163          {
+ 164   1          AngCalDataInit();                                                                   //½Ç¶ÈÐ£×¼Êý¾Ý³õÊ¼»¯
+ 165   1          TempCalDataInit();                                                                  //ÎÂ¶È²¹³¥Êý¾Ý³õÊ¼»¯
+ 166   1          MTCalDataInit();                                                                            //ÎÂ¶ÈÐ£×¼Êý¾Ý³õÊ¼»¯
+ 167   1      }
+ 168          //************************½«Ð£×¼Êý¾Ý´æµ½»º´æÇø***********************************************/
+ 169          static void Ram_CalData2Buf (int8u page)
+ 170          {   int8u i;
+ 171   1               int16u j;
+ 172   1          int16u k;
+ 173   1          if(page==1)                                               
+ 174   1          {
+ 175   2              for(i=0;i<ANG_CAL_NUM;i++)
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 4   
+
+ 176   2              {
+ 177   3                  *((int32s*)&DispBuf[i*16+2]) = GetAngXCalAngVal(i); 
+ 178   3                  *((int32s*)&DispBuf[i*16+6]) = GetAngYCalAngVal(i);
+ 179   3                  *((int32u*)&DispBuf[i*16+10]) = GetAngXCalAdcVal(i);                                //2013-6-24 06:08PMËïÄÈÐÞ¸Ä
+ 180   3                  *((int32u*)&DispBuf[i*16+14]) = GetAngYCalAdcVal(i); 
+ 181   3              }
+ 182   2      
+ 183   2              for(i=0;i<SystemVerNum;i++)
+ 184   2              {
+ 185   3                *((int8u*)&DispBuf[ANG_CAL_NUM*16+2+i]) = SystemVer[i];
+ 186   3              }
+ 187   2      
+ 188   2              j = ANG_CAL_NUM*16+2+SystemVerNum;
+ 189   2      
+ 190   2              *((int8u*)&DispBuf[j+0])  = GetAngXCalCnt();   //½Ç¶ÈÐ£×¼µãÊý¿ÉÉè   
+ 191   2              *((int8u*)&DispBuf[j+1])  = GetTempXCalCnt();  //ÎÂ¶È²¹³¢µãÊý¿ÉÉè
+ 192   2              *((int32u*)&DispBuf[j+2])  = AngRange;                  //½Ç¶È²âÁ¿·¶Î§
+ 193   2      
+ 194   2                      j = ANG_CAL_NUM*16+2+SystemVerNum + 6;
+ 195   2                      
+ 196   2              *((int32s*)&DispBuf[j+0])  = GetAngXSysZero();   //XÏà¶Ô²âÁ¿½Ç¶È(ÄÚ²¿ÇåÁã£©
+ 197   2              *((int32s*)&DispBuf[j+4])  = GetAngYSysZero();   //yÏà¶Ô²âÁ¿½Ç¶È(ÄÚ²¿ÇåÁã£©
+ 198   2                      *((int8u*)&DispBuf[j+8])  = KeyEnb;
+ 199   2                      *((int8u*)&DispBuf[j+9])  = GetMcuTCalCnt();    //MCUÎÂ¶ÈÐ£×¼µãÊý¿ÉÉè 2013-8-30 02:26PMÐÂÔö¼Ó±äÁ¿
+ 200   2                                                                                                                                                                                                                                                         
+ 201   2              k=ANG_CAL_NUM*16+2+SystemVerNum+16;
+ 202   2              for(;k<FLASH_BUF_NUM;k++)
+ 203   2              {
+ 204   3                  DispBuf[k]=0;
+ 205   3              }                                                                       //Ê£ÓàµÄ ¶¼ÖÃ0
+ 206   2      
+ 207   2              DispBuf[0] = FLASH_DATA_CHK; 
+ 208   2              DispBuf[1] = Flash_CheckSum((int8u*)(&DispBuf[2]),(FLASH_BUF_NUM-2));   //¼ÆËãCheckSum 
+ 209   2          }
+ 210   1          else if(2==page)                                                            
+ 211   1          {
+ 212   2              *((int8u*)&DispBuf[2]) = SendActPosi;                                   //Ö÷¶¯·¢ËÍORÓ¦´ð·¢ËÍ
+ 213   2              *((int8u*)&DispBuf[3]) = SendSpeedNum;                                  //Ö÷¶¯·¢ËÍËÙ¶È
+ 214   2              *((int8u*)&DispBuf[4])  = Braud_Num;                                                            //²¨ÌØÂÊ
+ 215   2              *((int8u*)&DispBuf[5])  = GetFilterCnt();                                                       //ÂË²¨ÏµÊý
+ 216   2                      *((int16u*)&DispBuf[6]) = AlarmHighLow;
+ 217   2              *((int32s*)&DispBuf[8]) = AngAlarmOffset;                               //±¨¾¯ÈÝ²î  HXL ÐÂ×·¼Ó12/0
+             -9/10
+ 218   2      
+ 219   2              j = 12;
+ 220   2      
+ 221   2              *((int32s*)&DispBuf[j+0])  = GetAngXUsrZero() ;                         //XÏà¶Ô²âÁ¿½Ç¶È(ÓÃ»§ÇåÁã£©
+ 222   2              *((int32s*)&DispBuf[j+4])  = GetAngYUsrZero() ;                          //YÏà¶Ô²âÁ¿½Ç¶È(ÓÃ»§ÇåÁã£
+             -©   
+ 223   2      
+ 224   2              *((int32s*)&DispBuf[j+8]) = GetAngXInst() ;                             //X°²×°½Ç¶È
+ 225   2              *((int32s*)&DispBuf[j+12]) = GetAngYInst();                             //Y°²×°½Ç¶È
+ 226   2      
+ 227   2              *((int32s*)&DispBuf[j+16]) = GetAngXSet();
+ 228   2              *((int32s*)&DispBuf[j+20]) = GetAngYSet();                              //±¨¾¯½Ç¶È  
+ 229   2              *((int32s*)&DispBuf[j+24]) = GetAngPSet();                              //Ãæ±¨¾¯½Ç¶È  
+ 230   2                      *((int32s*)&DispBuf[j+28]) = Addr;
+ 231   2                      j = 12+32;
+ 232   2              for(i=0;i<TEMP_CAL_NUM;i++)
+ 233   2              {
+ 234   3      
+ 235   3                  *((int16u*)&DispBuf[j+i*10+0]) = GetTempXCalTempVal(i);   //MCUµÄÎÂ¶È      
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 5   
+
+ 236   3                  *((int32s*)&DispBuf[j+i*10+2]) = GetTempXCalAdcVal(i);
+ 237   3                  *((int32s*)&DispBuf[j+i*10+6]) = GetTempYCalAdcVal(i);
+ 238   3              }
+ 239   2              j=j+10*TEMP_CAL_NUM;
+ 240   2                      for(i=0;i<MTEMP_CAL_NUM;i++)
+ 241   2                      {
+ 242   3                  *((int16s*)&DispBuf[j+i*4+0]) = GetMcuTCalTempVal(i);   //MCUµÄÎÂ¶È      
+ 243   3                  *((int16u*)&DispBuf[j+i*4+2]) = GetMcuTCalAdcVal(i);
+ 244   3                      }        
+ 245   2              
+ 246   2              
+ 247   2                      k=j+4*MTEMP_CAL_NUM+32;                                                                                         //      Ô¤Áô32¸ö¿Õ¼ä×·¼ÓÐÂµÄ±äÁ¿
+ 248   2              for(;k<FLASH_BUF_NUM;k++)
+ 249   2              {
+ 250   3                  DispBuf[k]=0;
+ 251   3              }        
+ 252   2              
+ 253   2      
+ 254   2              DispBuf[0] = FLASH_DATA_CHK;
+ 255   2              DispBuf[1] = Flash_CheckSum((int8u*)(&DispBuf[2]),(FLASH_BUF_NUM-2));       
+ 256   2          }
+ 257   1      }
+ 258          
+ 259          
+ 260          //**************************************************************************/
+ 261          //**************************½«»º´æÇøµÄÊý¾Ý´æµ½ÄÚ´æDispBuf to Ram ************/
+ 262          //**************************************************************************/
+ 263          static void Ram_Buf2CalData (int8u page)
+ 264          {   int8u i;
+ 265   1              int16u  j;
+ 266   1          if(1==page)
+ 267   1          {
+ 268   2              for(i=0;i<ANG_CAL_NUM;i++)                                              
+ 269   2              {
+ 270   3                      /*
+ 271   3                  Ang_Xcal.angarr[i] = *((int32s*)&DispBuf[i*12+2]);                  //½«Flash¶Á³öµÄÊý¾Ý´æµ½Ïà¹
+             -ØÄÚ´æ
+ 272   3                  Ang_Ycal.angarr[i] = *((int32s*)&DispBuf[i*12+6]);
+ 273   3                  Ang_Xcal.adcarr[i] = *((int16u*)&DispBuf[i*12+10]);
+ 274   3                  Ang_Ycal.adcarr[i] = *((int16u*)&DispBuf[i*12+12]);                 //
+ 275   3              */
+ 276   3                  SetAngXCalAngVal(*((int32s*)&DispBuf[i*16+2]),i);
+ 277   3                  SetAngYCalAngVal(*((int32s*)&DispBuf[i*16+6]),i);
+ 278   3                  SetAngXCalAdcVal(*((int32u*)&DispBuf[i*16+10]),i);
+ 279   3                  SetAngYCalAdcVal(*((int32u*)&DispBuf[i*16+14]),i);                  //
+ 280   3      
+ 281   3              }
+ 282   2      
+ 283   2              for(i=0;i<SystemVerNum;i++)
+ 284   2              {
+ 285   3                SystemVer[i] = *((int8u*)&DispBuf[ANG_CAL_NUM*16+2+i]);
+ 286   3              }
+ 287   2      
+ 288   2              j=ANG_CAL_NUM*16+SystemVerNum+2; 
+ 289   2                                                                 
+ 290   2      
+ 291   2              SetAngCalCnt(*((int8u*)&DispBuf[j+0]));    //½Ç¶ÈÐ£×¼µãÊý¿ÉÉè   
+ 292   2              SetTempCalCnt(*((int8u*)&DispBuf[j+1]));   //ÎÂ¶È²¹³¢µãÊý¿ÉÉè
+ 293   2              AngRange = *((int32u*)&DispBuf[j+2]);           //²âÁ¿·¶Î§
+ 294   2              
+ 295   2                      j = ANG_CAL_NUM*16+2+SystemVerNum+ 6;
+ 296   2                      
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 6   
+
+ 297   2                      SetAngXSysZero(*((int32s*)&DispBuf[j+0]));
+ 298   2              SetAngYSysZero(*((int32s*)&DispBuf[j+4]));
+ 299   2                      KeyEnb = *((int8u*)&DispBuf[j+8]);
+ 300   2                      SetMcuTCalCnt(*((int8u*)&DispBuf[j+9]));    //MCUÎÂ¶ÈÐ£×¼µãÊý¿ÉÉè
+ 301   2          }
+ 302   1          if(2==page)
+ 303   1          {
+ 304   2              SendActPosi         = *((int8u*)&DispBuf[2]);
+ 305   2              SendSpeedNum        = *((int8u*)&DispBuf[3]);
+ 306   2              Braud_Num                       = *((int8u*)&DispBuf[4]);                                                                       //²¨ÌØÂÊ
+ 307   2              SetFilterCnt(*((int8u*)&DispBuf[5]));                                                                                           //ÂË²¨²¹³¢µãÊý¿ÉÉè
+ 308   2                      AlarmHighLow            = *((int16u*)&DispBuf[6]);
+ 309   2              AngAlarmOffset      = *((int32s*)&DispBuf[8]);                                      //±¨¾¯ÈÝ²î 
+ 310   2      
+ 311   2              j = 12;
+ 312   2      
+ 313   2              SetAngXUsrZero(*((int32s*)&DispBuf[j+0]));
+ 314   2              SetAngYUsrZero(*((int32s*)&DispBuf[j+4]));
+ 315   2      
+ 316   2              SetAngXInst(*((int32s*)&DispBuf[j+8]));
+ 317   2              SetAngYInst(*((int32s*)&DispBuf[j+12]));                                             //
+ 318   2      
+ 319   2              SetAngXSet(*((int32s*)&DispBuf[j+16]));
+ 320   2              SetAngYSet(*((int32s*)&DispBuf[j+20]));
+ 321   2              SetAngPSet(*((int32s*)&DispBuf[j+24]));
+ 322   2                      Addr = *((int32s*)&DispBuf[j+28]);
+ 323   2                      
+ 324   2                      j = 12+32;
+ 325   2              for(i=0;i<TEMP_CAL_NUM;i++)                                            
+ 326   2              {
+ 327   3                  SetTempXCalTempVal(*((int16u*)&DispBuf[j+i*10+0]),i);
+ 328   3                  SetTempXCalAdcVal ( *((int32s*)&DispBuf[j+i*10+2]),i);
+ 329   3                  SetTempYCalAdcVal ( *((int32s*)&DispBuf[j+i*10+6]),i);                     
+ 330   3      
+ 331   3              }
+ 332   2              j = j+10*TEMP_CAL_NUM;
+ 333   2                      for(i=0;i<MTEMP_CAL_NUM;i++)
+ 334   2                      {
+ 335   3                 SetMcuTCalTempVal(*((int16s*)&DispBuf[j+i*4+0]),i);   //MCUµÄÎÂ¶È      
+ 336   3                 SetMcuTCalAdcVal(*((int16u*)&DispBuf[j+i*4+2]),i);
+ 337   3                      }        
+ 338   2          }
+ 339   1      }
+ 340          
+ 341          
+ 342          //************************* CHECKSUM *************************************/
+ 343          static int8u Flash_CheckSum (int8u *addr,int16u n)
+ 344          {   int8u * data pread;
+ 345   1          int16u i;
+ 346   1          int8u  sum=0;
+ 347   1          pread = addr;
+ 348   1          for(i=0;i<n;i++)
+ 349   1          {
+ 350   2            sum += *(pread++);
+ 351   2          }
+ 352   1          return(sum);
+ 353   1      }
+ 354          
+ 355          //***********************************************************************/
+ 356          // *¹¦    ÄÜ£ºÒ³²Á³ý
+ 357          // *Èë    ¿Ú£º
+ 358          // *³ö    ¿Ú£º
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 7   
+
+ 359          // *±¸    ×¢£º
+ 360          // *º¯ÊýÐÔÖÊ£º
+ 361          //***********************************************************************/
+ 362          static void Flash_PageErase (int16u addr)
+ 363          {   char xdata * data pwrite;               // FLASH write pointer
+ 364   1          bit  ea_temp = EA;                      // Preserve EA
+ 365   1      
+ 366   1      
+ 367   1          pwrite = (char xdata *) addr;
+ 368   1          EA = 0;                                 // Disable interrupts
+ 369   1          VDM0CN = 0xA0;                          // Enable VDD monitor and high threshold
+ 370   1          RSTSRC = 0x02;                          // Enable VDD monitor as a reset source
+ 371   1          FLKEY  = 0xA5;                          // Key Sequence 1
+ 372   1          FLKEY  = 0xF1;                          // Key Sequence 2
+ 373   1          PSCTL |= 0x03;                          // PSWE = 1; PSEE = 1
+ 374   1          VDM0CN = 0xA0;                          // Enable VDD monitor and high threshold
+ 375   1          RSTSRC = 0x02;                          // Enable VDD monitor as a reset source
+ 376   1          *pwrite = 0;                            // Initiate page erase
+ 377   1          PSCTL  &= ~0x03;                        // PSWE = 0; PSEE = 0
+ 378   1          EA = ea_temp;                           // Restore interrupts
+ 379   1      }
+ 380          //***********************************************************************/
+ 381          // *¹¦    ÄÜ£ºFlash Write
+ 382          // *Èë    ¿Ú£ºaddr - valid range is from 0x0000 to 0x7DFE for 32K devices
+ 383          //            valid range is from 0x0000 to 0x3FFE for 16K devices
+ 384          // *³ö    ¿Ú£º
+ 385          // *±¸    ×¢£º
+ 386          // *º¯ÊýÐÔÖÊ£º
+ 387          //***********************************************************************/
+ 388          static void Flash_BufWr (int16u addr,char* buf,int16u n)
+ 389          {   char xdata * data pwrite;               // FLASH write pointer
+ 390   1          bit  ea_temp = EA;                      // Preserve EA
+ 391   1          int16u i;
+ 392   1      
+ 393   1      
+ 394   1          pwrite = (char xdata *) addr;
+ 395   1          EA = 0;                                 // Disable interrupts
+ 396   1          for(i=0;i<n;i++)
+ 397   1          {   VDM0CN = 0xA0;                      // Enable VDD monitor and high threshold
+ 398   2              RSTSRC = 0x02;                      // Enable VDD monitor as a reset source
+ 399   2              FLKEY  = 0xA5;                      // Key Sequence 1
+ 400   2              FLKEY  = 0xF1;                      // Key Sequence 2
+ 401   2              PSCTL |= 0x01;                      // PSWE = 1 which enables writes
+ 402   2              VDM0CN = 0xA0;                      // Enable VDD monitor and high threshold
+ 403   2              RSTSRC = 0x02;                      // Enable VDD monitor as a reset source
+ 404   2              *pwrite++=*buf++;
+ 405   2              PSCTL &= ~0x01;                     // PSWE = 0 which disable writes
+ 406   2          }
+ 407   1          EA = ea_temp;                           // Restore interrupts
+ 408   1      }
+ 409          //***********************************************************************/
+ 410          // *¹¦    ÄÜ£ºFlash Read
+ 411          // *Èë    ¿Ú£ºaddr - valid range is from 0x0000 to 0x7DFE for 32K devices
+ 412          //            valid range is from 0x0000 to 0x3FFE for 16K devices
+ 413          // *³ö    ¿Ú£º
+ 414          // *±¸    ×¢£º
+ 415          // *º¯ÊýÐÔÖÊ£º
+ 416          //***********************************************************************/
+ 417          static void Flash_BufRd (int16u addr,char* buf,int16u n)
+ 418          {   char code * data pread;                 // FLASH read pointer
+ 419   1          bit  ea_temp = EA;                      // Preserve EA
+ 420   1          int16u i;
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 8   
+
+ 421   1      
+ 422   1          pread = (char code *) addr;
+ 423   1          EA    = 0;                              // Disable interrupts
+ 424   1          for(i=0;i<n;i++)
+ 425   1          {
+ 426   2            *buf++ = *pread++;
+ 427   2          }
+ 428   1          EA = ea_temp;                           // Restore interrupts
+ 429   1      }
+ 430          
+ 431          //***********************************************************************/
+ 432          // *¹¦    ÄÜ£º
+ 433          // *Èë    ¿Ú£º
+ 434          // *³ö    ¿Ú£º
+ 435          // *±¸    ×¢£º
+ 436          // *º¯ÊýÐÔÖÊ£º
+ 437          //***********************************************************************/
+ 438          static int8u FlashChk (void)
+ 439          {   int8u temp;
+ 440   1          temp = DispBuf[0];
+ 441   1          if( temp == FLASH_DATA_CHK)return OK;
+ 442   1          else
+ 443   1          return ERR;
+ 444   1      }
+ 445          
+ 446          //***********************************************************************/
+ 447          // *¹¦    ÄÜ£º
+ 448          // *Èë    ¿Ú£º
+ 449          // *³ö    ¿Ú£º
+ 450          // *±¸    ×¢£º
+ 451          // *º¯ÊýÐÔÖÊ£º
+ 452          //***********************************************************************/
+ 453          static void FlashArea_User (void)
+ 454          {
+ 455   1          Flash_BufRd(FLASH_USER,DispBuf,FLASH_BUF_NUM);                
+ 456   1          if((OK != FlashChk())||(DispBuf[1] != Flash_CheckSum((int8u*)(&DispBuf[2]),(FLASH_BUF_NUM-2))))
+ 457   1          {
+ 458   2            Ram_CalDataInit_User();                           //USERµÄCHKºÍCheckSum ÓÐÎÊÌâ Ôò³õÊ¼»¯ TEMP OR USER
+             - ¾ÖÓòµÄÊý¾Ý
+ 459   2            Flash_CalDataUpdate_User (2,FLASH_TEMP,&DispBuf[0],FLASH_BUF_NUM);
+ 460   2            Flash_CalDataUpdate_User (2,FLASH_USER,&DispBuf[0],FLASH_BUF_NUM);
+ 461   2          }
+ 462   1          else
+ 463   1          {
+ 464   2             Ram_Buf2CalData(2);                              //½«USERÇøÓòµÄÊý¾Ý´æµ½ÄÚ´æ
+ 465   2             Flash_CalDataUpdate_User (2,FLASH_TEMP,&DispBuf[0],FLASH_BUF_NUM);  
+ 466   2                                                                                                              //USERµÄCHKºÍCheckSum ¶¼Ã»ÓÐÎÊÌâ ½«USER µÄÊý¾ÝUPDATE µ½TEMP ÇøÓò
+ 467   2          }
+ 468   1      }
+ 469          //***********************************************************************/
+ 470          // *¹¦    ÄÜ£º
+ 471          // *Èë    ¿Ú£º
+ 472          // *³ö    ¿Ú£º
+ 473          // *±¸    ×¢£º
+ 474          // *º¯ÊýÐÔÖÊ£º
+ 475          //***********************************************************************/
+ 476          
+ 477          static  void  Ram_CalDataInit_User(void)
+ 478          {
+ 479   1      
+ 480   1          SetAngXUsrZero(0);
+ 481   1          SetAngYUsrZero(0);  
+C51 COMPILER V9.01   FLASH                                                                 06/01/2018 17:39:15 PAGE 9   
+
+ 482   1          SetAngXSet(5000);                                                           //XÖáÓÃ»§±¨¾¯½Ç²ÎÊý
+ 483   1          SetAngYSet(5000);                                                           //YÖáÓÃ»§±¨¾¯½Ç²ÎÊý
+ 484   1          SetAngPSet(5000);                   
+ 485   1          SetAngXInst(0);
+ 486   1          SetAngYInst(0);
+ 487   1          Init_SystemPara();
+ 488   1      }
+ 489          
+ 490          
+ 491          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2524    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    512       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      51
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       4
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

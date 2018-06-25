@@ -1,0 +1,1267 @@
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MODBUSRTU
+OBJECT MODULE PLACED IN .\obj\ModBusRtu.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\ModBusRtu.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRIN
+                    -T(.\list\ModBusRtu.lst) OBJECT(.\obj\ModBusRtu.obj)
+
+line level    source
+
+   1          /*--------------------------------ÎÄ*¼þ*ÐÅ*Ï¢-----------------------------
+   2          * ÎÄ¼þÃû£º  ModBusRtu.c
+   3          * °æ¡¡±¾£º  v1.0
+   4          * Ãè  Êö£º  100TË«Öá ÕûºÏºóµÄ°æ±¾
+   5          * ´´½¨ÈË£º  
+   6          * ÈÕ  ÆÚ£º  
+   7          --------------------------------------------------------------------------
+   8          *µ±Ç°°æ±¾:      v1.0
+   9          *ÐÞ ¸Ä ÈË:
+  10          *ÈÕ¡¡  ÆÚ:
+  11          ----------------------------------ÐÞ¸ÄÂÄÀú--------------------------------
+  12          1¡¢
+  13          2¡¢
+  14          3¡¢
+  15          4¡¢
+  16          ------------------------------------------------------------------------*/
+  17          #define   __MODBUSRTU_C__
+  18          #include  "_Include.h"
+  19          //***********************************************************************/
+  20          #if MODBUS_CHECK_ENB==1
+  21          static void ModRtu_RlyError (int8u* buf,int8u excode);
+  22          static void ModRtu_WrReg (int8u* buf,int8u n);
+  23          static void ModRtu_RdReg (int8u* buf);
+  24          static int8u xdata udflashtag=0;
+  25          
+  26          //***********************************************************************/
+  27          static  int16u  FloatToInt( float ang, int8u highlow )                  //2013-9-22 02:37PMËïÄÈÐÞ¸Ä²ÎÊýÀàÐÍÎªint8u
+  28          {
+  29   1          int32u  temp ;
+  30   1          int16u  vol ;
+  31   1      
+  32   1          ang /= 10000.0 ;
+  33   1          temp = *( int32u* )&ang ;
+  34   1      
+  35   1          if( highlow == 'L' )
+  36   1          {
+  37   2              vol  = ( ( temp << 24 ) >> 24 ) << 8 ;
+  38   2              vol += ( ( temp << 16 ) >> 24 ) << 0 ;
+  39   2          }
+  40   1          else
+  41   1          {
+  42   2              vol  = ( ( temp <<  8 ) >> 24 ) << 8 ;
+  43   2              vol += ( ( temp <<  0 ) >> 24 ) << 0 ;
+  44   2          }
+  45   1          return( vol ) ;
+  46   1      }
+  47          //***********************************************************************/
+  48          // *¹¦    ÄÜ£º¼ÆËãÐ£ÑéÂë
+  49          // *Èë    ¿Ú£º
+  50          // *³ö    ¿Ú£º
+  51          // *±¸    ×¢£º
+  52          // *º¯ÊýÐÔÖÊ£º
+  53          //***********************************************************************/
+  54          int8u ModRtu_ChkCrc (int8u *buf,int8u len)
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 2   
+
+  55          {
+  56   1          if(len<3)
+  57   1          {   
+  58   2                      return(FALSE);
+  59   2          }
+  60   1          if( ModbusCrcCnt(buf, len) == 0 )           //Êý¾ÝºÍCRCÑéÖ¤ÂëÖØÐÂCRC¼ÆËãºóÎª0 
+  61   1          {   
+  62   2                      return(TRUE);
+  63   2          }
+  64   1          else
+  65   1          {   
+  66   2                      return(FALSE);
+  67   2          }
+  68   1      }
+  69          //***********************************************************************/
+  70          // *¹¦    ÄÜ£º´æ´¢Ð£ÑéÂë
+  71          // *Èë    ¿Ú£º
+  72          // *³ö    ¿Ú£º
+  73          // *±¸    ×¢£º
+  74          // *º¯ÊýÐÔÖÊ£º
+  75          //***********************************************************************/
+  76          void ModRtu_WrCrc (int8u* buf,int16u crc)
+  77          {
+  78   1          buf[0] = crc>>8;                            //HIGH 8BIT 
+  79   1          buf[1] = crc;                                       //LOW 8BIT
+  80   1      }
+  81          //***********************************************************************/
+  82          // *¹¦    ÄÜ£ºÊý¾Ý×ª»»
+  83          // *Èë    ¿Ú£º
+  84          // *³ö    ¿Ú£º
+  85          // *±¸    ×¢£º
+  86          // *º¯ÊýÐÔÖÊ£º
+  87          //***********************************************************************/
+  88          int16u  ModRtu_8to16 (int8u* buf)
+  89          {
+  90   1          int16u temp;
+  91   1      
+  92   1          temp = buf[0];
+  93   1          temp <<= 8;
+  94   1          temp |= buf[1];
+  95   1          return(temp);                        //ÓÃ»§½Ó¿Ú²¿·ÖÊÇ´ó¶ËÄ£Ê½
+  96   1      }
+  97          //***********************************************************************/
+  98          // *¹¦    ÄÜ£ºÁãµãÉèÖÃ
+  99          // *Èë    ¿Ú£º
+ 100          // *³ö    ¿Ú£º
+ 101          // *±¸    ×¢£º
+ 102          // *º¯ÊýÐÔÖÊ£º
+ 103          //***********************************************************************/
+ 104          void ModRtu_SetZero (int8u* buf)
+ 105          {   int16u temp;
+ 106   1          temp = ModRtu_8to16(buf);
+ 107   1      
+ 108   1          if(1 == temp)
+ 109   1          {
+ 110   2              SetAngXUsrZero(GetAngXRelSys());   //  ÉèÖÃXÖáÓÃ»§ÖÃÁã²ÎÊý(»ñÈ¡XÖáÏà¶Ô½Ç¶ÈÖµÄÚ²¿)
+ 111   2              SetAngYUsrZero(GetAngYRelSys());    
+ 112   2          }
+ 113   1          else if(0 == temp)
+ 114   1          {
+ 115   2              SetAngXUsrZero(0);
+ 116   2              SetAngYUsrZero(0);                      
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 3   
+
+ 117   2          }
+ 118   1      }
+ 119          //***********************************************************************/
+ 120          // *¹¦    ÄÜ£ºÐÞ¸Ä¼Ä´æÆ÷µÄÖµ
+ 121          // *Èë    ¿Ú£º
+ 122          // *³ö    ¿Ú£º
+ 123          // *±¸    ×¢£º
+ 124          // *º¯ÊýÐÔÖÊ£º´ó¶ËÄ£Ê½ÏÂ Ö¸Êý¾ÝµÄ¸ßÎ»£¬±£´æÔÚÄÚ´æµÄµÍµØÖ·
+ 125          //***********************************************************************/
+ 126          int32s ModRtu_Wr16u (int8u* buf)//int32s* dat)
+ 127          {
+ 128   1          int16s temp;
+ 129   1          int32s dat;                
+ 130   1      
+ 131   1          temp = buf[0];
+ 132   1          temp <<= 8;
+ 133   1          temp |= buf[1];
+ 134   1          dat = (int32s)temp*10;
+ 135   1          return dat;               
+ 136   1      }
+ 137          //***********************************************************************/
+ 138          // *¹¦    ÄÜ£ºÐÞ¸Ä±¾»úµØÖ·
+ 139          // *Èë    ¿Ú£º
+ 140          // *³ö    ¿Ú£º
+ 141          // *±¸    ×¢£º
+ 142          // *º¯ÊýÐÔÖÊ£º
+ 143          //***********************************************************************/
+ 144          int8u ModRtu_WrAddr (int8u* buf)
+ 145          {
+ 146   1          int16u temp;
+ 147   1      
+ 148   1          temp = buf[0];
+ 149   1          temp <<= 8;
+ 150   1          temp |= buf[1];
+ 151   1          if((temp < 1) || (temp > 247)) return (FALSE);
+ 152   1          Addr = temp;
+ 153   1          return(TRUE);
+ 154   1      }
+ 155          //***********************************************************************/
+ 156          // *¹¦    ÄÜ£ºÐÞ¸Ä²¨ÌØÂÊ
+ 157          // *Èë    ¿Ú£º
+ 158          // *³ö    ¿Ú£º
+ 159          // *±¸    ×¢£º
+ 160          // *º¯ÊýÐÔÖÊ£º
+ 161          //***********************************************************************/
+ 162          int8u ModRtu_WrBaud (int8u* buf)
+ 163          {
+ 164   1          int16u temp;
+ 165   1      
+ 166   1          temp = buf[0];
+ 167   1          temp <<= 8;
+ 168   1          temp |= buf[1];
+ 169   1          if((temp < 0) || (temp > 8)) return (FALSE);//
+ 170   1          Braud_Num = temp;
+ 171   1          return(TRUE);
+ 172   1      }
+ 173          //***********************************************************************/
+ 174          // *¹¦    ÄÜ£º
+ 175          // *Èë    ¿Ú£º
+ 176          // *³ö    ¿Ú£º
+ 177          // *±¸    ×¢£º
+ 178          // *º¯ÊýÐÔÖÊ£º
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 4   
+
+ 179          //***********************************************************************/
+ 180          //int8u ModRtu_WrVal (int16u addr, int8u* buf)
+ 181          int8u ModRtu_WrVal (int16u addr, int8u* buf,int8u* excode)
+ 182          {
+ 183   1          static  xdata int32u  vol32u ;
+ 184   1          static  xdata int8u  vol8u ;
+ 185   1          float   xdata volf ;
+ 186   1          int16u  xdata pc_data ;
+ 187   1          int16s  xdata vol16s ;
+ 188   1      
+ 189   1          pc_data = buf[1] * 256 + buf[0] ;  
+ 190   1          switch(addr)
+ 191   1          {
+ 192   2              case ANGX_OFFSET_ADDR:      SetAngXInst(ModRtu_Wr16u(buf));             //Ð´ÈëXÖá°²×°½Ç¶È
+ 193   2                                                                          udflashtag = 1;
+ 194   2                                          break;
+ 195   2              case ANGY_OFFSET_ADDR:      SetAngYInst(ModRtu_Wr16u(buf));             //Ð´ÈëYÖá°²×°½Ç¶È
+ 196   2                                                                              udflashtag = 1;
+ 197   2                                          break;        //
+ 198   2              case ANGX_ALARM_ADDR:       SetAngXSet(ModRtu_Wr16u(buf));              //Ð´ÈëXÖá¿ª¹ØÁ¿Êä³ö½Ç¶È
+ 199   2                                                                              udflashtag = 1;
+ 200   2                                          break;
+ 201   2              case ANGY_ALARM_ADDR:       SetAngYSet(ModRtu_Wr16u(buf));              //Ð´ÈëYÖá¿ª¹ØÁ¿Êä³ö½Ç¶È
+ 202   2                                                                              udflashtag = 1;
+ 203   2                                          break;
+ 204   2              case ANGP_ALARM_ADDR:       SetAngPSet(ModRtu_Wr16u(buf));               //Ð´ÈëP¿ª¹ØÁ¿Êä³ö½Ç¶È
+ 205   2                                                                              udflashtag = 1;
+ 206   2                                          break;
+ 207   2              case ZERO_ADDR:             ModRtu_SetZero(buf);                        //ÁãµãÉèÖÃÖµ
+ 208   2                                                                              udflashtag = 1;
+ 209   2                                          break;
+ 210   2      //      case RST_ADDR:              Sub_SysRst();                               //¸´Î»ÏµÍ³
+ 211   2      //                                  break;
+ 212   2      
+ 213   2              case SELF_ADDR:             
+ 214   2                                                                              udflashtag = 1;
+ 215   2                                                                              return (ModRtu_WrAddr(buf));                            //ÐÞ¸ÄÖÕ¶Ë»úµØÖ·
+ 216   2              case BAUD_ADDR:             
+ 217   2                                                                              udflashtag = 1;
+ 218   2                                                                              return (ModRtu_WrBaud(buf));                            //ÐÞ¸Ä²¨ÌØÂÊ
+ 219   2       //***********************************************
+ 220   2      {
+ 221   3          {
+ 222   4               case 0x0111:
+ 223   4              {
+ 224   5      //           vol32u = pc_data ;
+ 225   5              }break ;
+ 226   4          
+ 227   4              case 0x0112:
+ 228   4              {
+ 229   5      //           vol32u += pc_data * 65536 ;
+ 230   5      //           volf = *(float*)&vol32u ;
+ 231   5      //           Set_AngLow(volf * 1000);                           ////ÉèÖÃDAÊä³ö¶ÔÓ¦µÄ×îÐ¡½Ç¶È
+ 232   5              }break ;
+ 233   4              case 0x0113:
+ 234   4              {
+ 235   5      //           vol32u = pc_data ;
+ 236   5              }break ;
+ 237   4          
+ 238   4              case 0x0114:
+ 239   4              {
+ 240   5      //            vol32u += pc_data * 65536 ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 5   
+
+ 241   5      //            volf = *(float*)&vol32u ;
+ 242   5      //            Set_AngHigh(volf * 1000);                         ////ÉèÖÃDAÊä³ö¶ÔÓ¦µÄ×î´ó½Ç¶È
+ 243   5              }break ;
+ 244   4              case 0x0115:
+ 245   4              {
+ 246   5                  AlarmHighLow = buf[1] ;
+ 247   5              }break ;
+ 248   4              case 0x0116:
+ 249   4              {
+ 250   5                  vol32u = pc_data ;
+ 251   5              }break ;
+ 252   4              case 0x0117:
+ 253   4              {
+ 254   5                  vol32u += pc_data * 65536 ;
+ 255   5                  volf = *(float*)&vol32u ;
+ 256   5                  SetAngXSet(volf * 10000);             
+ 257   5              }break ;
+ 258   4              case 0x0118:
+ 259   4              {
+ 260   5                  vol32u = pc_data ;
+ 261   5              }break ;
+ 262   4              case 0x0119:
+ 263   4              {
+ 264   5                  vol32u += pc_data * 65536 ;
+ 265   5                  volf = *(float*)&vol32u ;
+ 266   5                  SetAngYSet(volf * 10000);             
+ 267   5              }break ;
+ 268   4              case 0x011A:
+ 269   4              {
+ 270   5                  vol32u = pc_data ;
+ 271   5              }break ;
+ 272   4              case 0x011B:
+ 273   4              {
+ 274   5                  vol32u += pc_data * 65536 ;
+ 275   5                  volf = *(float*)&vol32u ;
+ 276   5                  SetAngPSet(volf * 10000);              
+ 277   5              }break ;
+ 278   4              case 0x011C:
+ 279   4              {
+ 280   5                  vol32u = pc_data ;
+ 281   5              }break ;
+ 282   4              case 0x011D:
+ 283   4              {
+ 284   5                  vol32u += pc_data * 65536 ;
+ 285   5                  volf = *(float*)&vol32u ;
+ 286   5                  AngAlarmOffset = volf * 10000 ;               //±¨¾¯ÈÝ²î
+ 287   5              }break ;
+ 288   4              case 0x011E:
+ 289   4              {
+ 290   5                  vol32u = pc_data ;
+ 291   5              }break ;
+ 292   4              case 0x011F:
+ 293   4              {
+ 294   5                  vol32u += pc_data * 65536 ;
+ 295   5                  if( vol32u == 0xAC35AC35 )
+ 296   5                  {
+ 297   6                      SetAngXUsrZero(GetAngXRelSys());   
+ 298   6                  }
+ 299   5                  else if( vol32u == 0x03050305 )
+ 300   5                  {
+ 301   6                      SetAngXUsrZero(0);
+ 302   6                  }
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 6   
+
+ 303   5              }break ;
+ 304   4              case 0x0120:
+ 305   4              {
+ 306   5                  vol32u = pc_data ;
+ 307   5              }break ;
+ 308   4              case 0x0121:
+ 309   4              {
+ 310   5                  vol32u += pc_data * 65536 ;
+ 311   5                  if( vol32u == 0xAC35AC35 )
+ 312   5                  {
+ 313   6                      SetAngYUsrZero(GetAngYRelSys());   
+ 314   6                  }
+ 315   5                  else if( vol32u == 0x03050305 )
+ 316   5                  {
+ 317   6                      SetAngYUsrZero(0);
+ 318   6                  }
+ 319   5              }break ;
+ 320   4              case 0x0122:
+ 321   4              {
+ 322   5                  vol32u = pc_data ;
+ 323   5              }break ;
+ 324   4              case 0x0123:
+ 325   4              {
+ 326   5                  vol32u += pc_data * 65536 ;
+ 327   5                  volf = *(float*)&vol32u ;
+ 328   5                  SetAngXInst(volf * 10000);
+ 329   5              }break ;
+ 330   4              case 0x0124:
+ 331   4              {
+ 332   5                  vol32u = pc_data ;
+ 333   5              }break ;
+ 334   4              case 0x0125:
+ 335   4              {
+ 336   5                  vol32u += pc_data * 65536 ;
+ 337   5                  volf = *(float*)&vol32u ;
+ 338   5                  SetAngYInst(volf * 10000);
+ 339   5      
+ 340   5              }break ;
+ 341   4              case 0x0126:break ;
+ 342   4              case 0x0127:break ;
+ 343   4              case 0x0128:SetFilterCnt(buf[1]); break ;
+ 344   4              case 0x0129:Addr = buf[1] ; break ;
+ 345   4              case 0x012A:break ;
+ 346   4                      case 0x012B:
+ 347   4              {       
+ 348   5                  if( buf[1] == 0xAC )
+ 349   5                  {
+ 350   6                      Flash_UserDataUpdate();
+ 351   6                  }
+ 352   5              }break ;
+ 353   4              
+ 354   4              
+ 355   4              //***********************************************************
+ 356   4              case 0xA800:
+ 357   4              case 0xA801:
+ 358   4              case 0xA802:
+ 359   4              case 0xA803:
+ 360   4              case 0xA804:
+ 361   4              case 0xA805:
+ 362   4              case 0xA806:
+ 363   4              case 0xA807:
+ 364   4              {
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 7   
+
+ 365   5                  SystemVer[(addr-0xA800)*2+0] = buf[0] ;
+ 366   5                  SystemVer[(addr-0xA800)*2+1] = buf[1] ;
+ 367   5              }break ;
+ 368   4              case 0xA808:
+ 369   4              {
+ 370   5                  vol8u = buf[0] ; // 'X' 'Y'
+ 371   5                  pc_data = buf[1] ;
+ 372   5                  AngRange = pc_data ;                         //²âÁ¿·¶Î§
+ 373   5                  switch( pc_data )
+ 374   5                  {
+ 375   6                      case   5: SetAngCalCnt(11) ;  break ;//¼ä¸ô1¡ã
+ 376   6                      case  15: SetAngCalCnt(11) ;  break ;//¼ä¸ô3¡ã
+ 377   6                      case  30: SetAngCalCnt(13) ;  break ;//¼ä¸ô5¡ã
+ 378   6                                      default : *excode=3;  return(FALSE);
+ 379   6                  }
+ 380   5              }break ;
+ 381   4              case 0xA809:
+ 382   4              {
+ 383   5                  vol32u = pc_data ;
+ 384   5              }break ;
+ 385   4              //***********************************************
+ 386   4              case 0xA80A:
+ 387   4              {
+ 388   5                  vol32u += pc_data * 65536 ;
+ 389   5                  volf = *(float*)&vol32u ;
+ 390   5                  if( volf > 0 )
+ 391   5                  {
+ 392   6                      vol16s = (int16s)volf + 2 ;
+ 393   6                  }
+ 394   5                  else
+ 395   5                  {
+ 396   6                      vol16s = (int16s)volf - 2 ;
+ 397   6                  }
+ 398   5                  if( AngRange < 30 )
+ 399   5                  {
+ 400   6                      vol16s = ( int16s )( vol16s / 5 ) ;
+ 401   6                      pc_data = vol16s + (GetAngXCalCnt() / 2) ;   //«@È¡½Ç¶ÈÐ£œÊüc‚€”µ  
+ 402   6                  }
+ 403   5                  else if( AngRange == 30 )
+ 404   5                  {
+ 405   6                      vol16s = ( int16s )( vol16s / 5 ) * 5 ;
+ 406   6                      switch( vol16s )
+ 407   6                      {
+ 408   7                          case -30 : pc_data = 0 ; break ;
+ 409   7                          case -15 : pc_data = 1 ; break ;     
+ 410   7                          case  -5 : pc_data = 2 ; break ;
+ 411   7                          case   0 : pc_data = 3 ; break ;
+ 412   7                          case   5 : pc_data = 4 ; break ;
+ 413   7                          case  15 : pc_data = 5 ; break ;
+ 414   7                          case  30 : pc_data = 6 ; break ;
+ 415   7                                              default  : *excode=3;  return(FALSE);
+ 416   7                      }
+ 417   6                  }
+ 418   5                  else 
+ 419   5                  {
+ 420   6                      vol16s = ( int16s )( vol16s / 15 ) ;
+ 421   6                      pc_data = vol16s + (GetAngXCalCnt() / 2) ;   // «@È¡½Ç¶ÈÐ£œÊüc‚€”µ  
+ 422   6      
+ 423   6                  }
+ 424   5                  if( vol8u == 'X' )
+ 425   5                  {
+ 426   6                    SetAngXCalAngVal(volf * 10000,pc_data);
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 8   
+
+ 427   6                    SetAngXCalAdcVal(GetXOftVal(),pc_data);              
+ 428   6                  }
+ 429   5                  else
+ 430   5                  {
+ 431   6                      SetAngYCalAngVal(volf * 10000,pc_data );           
+ 432   6                      SetAngYCalAdcVal(GetYOftVal(),pc_data);            
+ 433   6      
+ 434   6                  }
+ 435   5              }break ;
+ 436   4              case 0xA80B:
+ 437   4              {
+ 438   5                  pc_data = buf[0] * 256 + buf[1] ;
+ 439   5                  if( pc_data == 0x0305 )
+ 440   5                  {
+ 441   6                      Flash_CalDataUpdate() ;
+ 442   6                  }
+ 443   5              }break ;
+ 444   4              case 0xA80E:
+ 445   4              {
+ 446   5                  pc_data = buf[0] * 256 + buf[1] ;
+ 447   5                  switch( pc_data )
+ 448   5                  {
+ 449   6                      case 0xA501:SetAngXSysZero(GetXAng());
+ 450   6                                  SetAngYSysZero(GetYAng());
+ 451   6                                  break ;                       
+ 452   6                      case 0xA502:SetAngXSysZero(0);
+ 453   6                                  SetAngYSysZero(0);
+ 454   6                                  break ;                       
+ 455   6                      case 0xA503:SetAngXUsrZero(GetAngXRelSys());
+ 456   6                                  SetAngYUsrZero(GetAngYRelSys());
+ 457   6                                  break ;
+ 458   6                      case 0xA504:SetAngXUsrZero(0) ;
+ 459   6                                  SetAngYUsrZero(0) ;
+ 460   6                                  break ;
+ 461   6                  }
+ 462   5              }break ;
+ 463   4              case 0xA80F:
+ 464   4              {
+ 465   5                  vol32u = pc_data ;
+ 466   5              }break ;
+ 467   4              case 0xA810:
+ 468   4              {
+ 469   5                  vol32u += pc_data * 65536 ;
+ 470   5                  volf = *(float*)&vol32u ;
+ 471   5                  SetAngXInst(volf * 10000);
+ 472   5              }break ;
+ 473   4              case 0xA811:
+ 474   4              {
+ 475   5                  vol32u = pc_data ;
+ 476   5              }break ;
+ 477   4              case 0xA812:
+ 478   4              {
+ 479   5                  vol32u += pc_data * 65536 ;
+ 480   5                  volf = *(float*)&vol32u ;
+ 481   5                  SetAngYInst(volf * 10000);         
+ 482   5              }break ;
+ 483   4              case 0xA813:
+ 484   4              {
+ 485   5                  vol32u = pc_data ;
+ 486   5              }break ;
+ 487   4              case 0xA814:
+ 488   4              {
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 9   
+
+ 489   5                  vol32u += pc_data * 65536 ;
+ 490   5                  volf = *(float*)&vol32u ;
+ 491   5                  SetAngXSet(volf * 10000);             
+ 492   5              }break ;
+ 493   4              case 0xA815:
+ 494   4              {
+ 495   5                  vol32u = pc_data ;
+ 496   5              }break ;
+ 497   4              case 0xA816:
+ 498   4              {
+ 499   5                  vol32u += pc_data * 65536 ;
+ 500   5                  volf = *(float*)&vol32u ;
+ 501   5                  SetAngYSet(volf * 10000);             
+ 502   5              }break ;
+ 503   4              case 0xA817:
+ 504   4              {
+ 505   5                  vol32u = pc_data ;
+ 506   5              }break ;
+ 507   4              case 0xA818:
+ 508   4              {
+ 509   5                  vol32u += pc_data * 65536 ;
+ 510   5                  volf = *(float*)&vol32u ;
+ 511   5                  SetAngPSet(volf * 10000);              
+ 512   5              }break ;
+ 513   4              case 0xA819:
+ 514   4              {
+ 515   5                  vol32u = pc_data ;
+ 516   5              }break ;
+ 517   4              case 0xA81A:
+ 518   4              {
+ 519   5                  vol32u += pc_data * 65536 ;
+ 520   5                  volf = *(float*)&vol32u ;
+ 521   5                  AngAlarmOffset = volf * 10000 ;
+ 522   5              }break ;
+ 523   4              case 0xA81B:
+ 524   4              {
+ 525   5                  pc_data = buf[0] * 256 + buf[1] ;
+ 526   5                  SendSpeedNum = pc_data ;
+ 527   5              }break ;
+ 528   4              case 0xA81C:
+ 529   4              {
+ 530   5                  pc_data = buf[0] * 256 + buf[1] ;
+ 531   5                  SetFilterCnt(pc_data);
+ 532   5              }break ;
+ 533   4      
+ 534   4             case 0xA81D:
+ 535   4             {
+ 536   5      //           vol32u = pc_data ;
+ 537   5             }break ;
+ 538   4          
+ 539   4             case 0xA81E:
+ 540   4             {
+ 541   5      //            vol32u += pc_data * 65536 ;
+ 542   5      //            volf = *(float*)&vol32u ;
+ 543   5      //            Set_AngLow(volf * 1000);                          //ÉèÖÃDAÊä³ö¶ÔÓ¦µÄ×îÐ¡½Ç¶È
+ 544   5             }break ;
+ 545   4             case 0xA81F:
+ 546   4             {
+ 547   5      //           vol32u = pc_data ;
+ 548   5             }break ;
+ 549   4          
+ 550   4             case 0xA820:
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 10  
+
+ 551   4              {
+ 552   5      //            vol32u += pc_data * 65536 ;
+ 553   5      //            volf = *(float*)&vol32u ;
+ 554   5      //            Set_AngHigh(volf * 1000);               //ÉèÖÃDAÊä³ö¶ÔÓ¦µÄ×î´ó½Ç¶È
+ 555   5              }break ;
+ 556   4      
+ 557   4                case 0xA821:
+ 558   4                {
+ 559   5      //            Da_CalStaX( buf[1]) ;                                           //XÖáDA Ð£×¼0¿ªÊ¼                 
+ 560   5                }break ; 
+ 561   4      
+ 562   4                case 0xA822:
+ 563   4                {
+ 564   5      //            vol8u =  buf[1] ;                                           //XÖáDA Ð£×¼Êý¾ÝÊý×éÎ»ÖÃ                      
+ 565   5                }break ; 
+ 566   4                case 0xA823:
+ 567   4                {
+ 568   5      //            Da_CalPorcX(vol8u,pc_data*1000) ;                   //XÖáDA Ð£×¼Êý¾Ý±£´æ                  
+ 569   5                }break ; 
+ 570   4      
+ 571   4      
+ 572   4                case 0xA824:
+ 573   4                {
+ 574   5      //            Da_CalStaX( buf[1]) ;                                           //XÖáDA Ð£×¼1¿ªÊ¼                 
+ 575   5                }break ; 
+ 576   4      
+ 577   4                case 0xA825:
+ 578   4                {
+ 579   5      //            vol8u =  buf[1] ;                                           //XÖáDAÐ£×¼1Êý¾ÝÊý×éÎ»ÖÃ                      
+ 580   5                }break ; 
+ 581   4                case 0xA826:
+ 582   4                {
+ 583   5      //            Da_CalPorcX(vol8u,pc_data*1000) ;                   //XÖáDA Ð£×¼1Êý¾Ý±£´æ                 
+ 584   5                }break ;  
+ 585   4            
+ 586   4                case 0xA827:
+ 587   4                {
+ 588   5      //            Da_CalStaY( buf[1]) ;                                           //YÖáDA Ð£×¼0¿ªÊ¼                 
+ 589   5                }break ; 
+ 590   4      
+ 591   4                case 0xA828:
+ 592   4                {
+ 593   5      //            vol8u =  buf[1] ;                                           //YÖáDA Ð£×¼Êý¾ÝÊý×éÎ»ÖÃ                      
+ 594   5                }break ; 
+ 595   4                case 0xA829:
+ 596   4                {
+ 597   5      //            Da_CalPorcY(vol8u,pc_data*1000) ;                   //YÖáDA Ð£×¼Êý¾Ý±£´æ                  
+ 598   5                }break ; 
+ 599   4      
+ 600   4      
+ 601   4                case 0xA82A:
+ 602   4                {
+ 603   5      //            Da_CalStaY( buf[1]) ;                                           //YÖáDA Ð£×¼1¿ªÊ¼                 
+ 604   5                }break ; 
+ 605   4      
+ 606   4                case 0xA82B:
+ 607   4                {
+ 608   5      //            vol8u =  buf[1] ;                                           //YÖáDAÐ£×¼1Êý¾ÝÊý×éÎ»ÖÃ                      
+ 609   5                }break ; 
+ 610   4                case 0xA82C:
+ 611   4                {
+ 612   5      //            Da_CalPorcY(vol8u,pc_data*1000) ;                   //YÖáDA Ð£×¼1Êý¾Ý±£´æ                 
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 11  
+
+ 613   5                }break ;        
+ 614   4              
+ 615   4              
+ 616   4          }
+ 617   3      }
+ 618   2       //       default:return(FALSE);
+ 619   2              default:        *excode=02;
+ 620   2                                              return(FALSE);
+ 621   2          }
+ 622   1          return(TRUE);
+ 623   1      }
+ 624          //***********************************************************************/
+ 625          // *¹¦    ÄÜ£º
+ 626          // *Èë    ¿Ú£º
+ 627          // *³ö    ¿Ú£º
+ 628          // *±¸    ×¢£º
+ 629          // *º¯ÊýÐÔÖÊ£º
+ 630          //***********************************************************************/
+ 631          void ModRtu_Rd16u (int8u* buf,int16s dat)
+ 632          {
+ 633   1          buf[0] = MR_READ_REGH(dat);
+ 634   1          buf[1] = MR_READ_REGL(dat);
+ 635   1      }
+ 636          //***********************************************************************/
+ 637          // *¹¦    ÄÜ£º¶Á¼Ä´æÆ÷
+ 638          // *Èë    ¿Ú£º
+ 639          // *³ö    ¿Ú£º
+ 640          // *±¸    ×¢£º
+ 641          // *º¯ÊýÐÔÖÊ£º
+ 642          //***********************************************************************/
+ 643          int8u ModRtu_RdVal (int16u addr,int8u* buf,int8u* excode)
+ 644          {
+ 645   1      
+ 646   1          int16u  xdata pc_data ;
+ 647   1          int16s  xdata vol16s ;
+ 648   1          switch(addr)
+ 649   1          {
+ 650   2      
+ 651   2              case ANGX_ADDR:         vol16s = (GetXAngAllSetVal()/10) ; pc_data = *(int16u*)&vol16s ; break ;  
+             -  //»ñÈ¡×îÖÕµÄ½Ç¶È
+ 652   2              case ANGY_ADDR:         vol16s = (GetYAngAllSetVal()/10) ; pc_data = *(int16u*)&vol16s ; break ;  
+             -  //HXL 12/8/27 ÕûºÏ¸üÐÂ
+ 653   2      
+ 654   2              case ANGP_ADDR:         vol16s = (GetAngP()/10)           ; pc_data = *(int16u*)&vol16s ; break ; 
+             -   //HXL 12/8/27 ÕûºÏ¸üÐÂ
+ 655   2      
+ 656   2              case ANGX_OFFSET_ADDR:  vol16s = (GetAngXInst()/10)       ; pc_data = *(int16u*)&vol16s ; break ;
+ 657   2              case ANGY_OFFSET_ADDR:  vol16s = (GetAngYInst()/10)       ; pc_data = *(int16u*)&vol16s ; break ; 
+             - //HXL 12/8/26 ÕûºÏ¸üÐÂ
+ 658   2      
+ 659   2              case ANGX_ALARM_ADDR:   vol16s = (GetAngXSet()/10)        ; pc_data = *(int16u*)&vol16s ; break ;
+ 660   2              case ANGY_ALARM_ADDR:   vol16s = (GetAngYSet()/10)        ; pc_data = *(int16u*)&vol16s ; break ; 
+             -    //HXL 12/8/26
+ 661   2      
+ 662   2              case ANGP_ALARM_ADDR:   vol16s = (GetAngPSet()/10)        ; pc_data = *(int16u*)&vol16s ; break ; 
+             -         //HXL 12/8/26 ÕûºÏ¸üÐÂ
+ 663   2              case SELF_ADDR:         vol16s = Addr                     ; pc_data = *(int16u*)&vol16s ; break ;
+ 664   2              case BAUD_ADDR:         vol16s = Braud_Num                ; pc_data = *(int16u*)&vol16s ; break ;
+ 665   2       //**************************************
+ 666   2      {
+ 667   3          {
+ 668   4              case 0x0100 : pc_data = SystemVer[ 0] *256 + SystemVer[ 1]       ; break ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 12  
+
+ 669   4              case 0x0101 : pc_data = SystemVer[ 2] *256 + SystemVer[ 3]       ; break ;
+ 670   4              case 0x0102 : pc_data = SystemVer[ 4] *256 + SystemVer[ 5]       ; break ;
+ 671   4              case 0x0103 : pc_data = SystemVer[ 6] *256 + SystemVer[ 7]       ; break ;
+ 672   4              case 0x0104 : pc_data = SystemVer[ 8] *256 + SystemVer[ 9]       ; break ;
+ 673   4              case 0x0105 : pc_data = SystemVer[10] *256 + SystemVer[11]       ; break ;
+ 674   4              case 0x0106 : pc_data = SystemVer[12] *256 + SystemVer[13]       ; break ;
+ 675   4              case 0x0107 : pc_data = SystemVer[14] *256 + SystemVer[15]       ; break ;
+ 676   4              case 0x0108 : pc_data = FloatToInt( GetXAngAllSetVal() ,'L' )    ; break ;        //X,Y½Ç¶ÈÖµ
+ 677   4              case 0x0109 : pc_data = FloatToInt( GetXAngAllSetVal() ,'H' )    ; break ;
+ 678   4              case 0x010A : pc_data = FloatToInt( GetYAngAllSetVal() ,'L' )    ; break ;
+ 679   4              case 0x010B : pc_data = FloatToInt( GetYAngAllSetVal() ,'H' )    ; break ;
+ 680   4              case 0x010C : pc_data = FloatToInt( GetAngP(), 'L' )             ; break ;
+ 681   4              case 0x010D : pc_data = FloatToInt( GetAngP(), 'H' )             ; break ;
+ 682   4              case 0x010E : pc_data = 0                                        ; break ;
+ 683   4              case 0x010F : pc_data = 0                                        ; break ;
+ 684   4              case 0x0110 : pc_data = 0                                        ; break ;
+ 685   4                      case 0x0111 : pc_data =0 ; break ;//FloatToInt( Get_AngLow()    , 'L' )      ; break ; //»ñÈ¡DAÊä³ö¶ÔÓ¦
+             -µÄ×îÐ¡½Ç¶È
+ 686   4              case 0x0112 : pc_data =0 ; break ;//FloatToInt( Get_AngLow()    , 'H' )      ; break ; //»ñÈ¡DAÊä³
+             -ö¶ÔÓ¦µÄ×îÐ¡½Ç¶È
+ 687   4              case 0x0113 : pc_data =0 ; break ;//FloatToInt( Get_AngHigh()    , 'L' )     ; break ; //»ñÈ¡DAÊä³
+             -ö¶ÔÓ¦µÄ×î´ó½Ç¶È
+ 688   4              case 0x0114 : pc_data =0 ; break ;//FloatToInt( Get_AngHigh()    , 'H' )     ; break ; //»ñÈ¡DAÊä³
+             -ö¶ÔÓ¦µÄ×î´ó½Ç¶È
+ 689   4              case 0x0115 : pc_data = AlarmHighLow                             ; break ;
+ 690   4              case 0x0116 : pc_data = FloatToInt( GetAngXSet(), 'L' )          ; break ;
+ 691   4              case 0x0117 : pc_data = FloatToInt( GetAngXSet(), 'H' )          ; break ;
+ 692   4              case 0x0118 : pc_data = FloatToInt( GetAngYSet(), 'L' )          ; break ;
+ 693   4              case 0x0119 : pc_data = FloatToInt( GetAngYSet(), 'H' )          ; break ;
+ 694   4              case 0x011A : pc_data = FloatToInt( GetAngPSet(), 'L' )          ; break ;
+ 695   4              case 0x011B : pc_data = FloatToInt( GetAngPSet(), 'H' )          ; break ;
+ 696   4              case 0x011C : pc_data = FloatToInt( AngAlarmOffset, 'L' )        ; break ;
+ 697   4              case 0x011D : pc_data = FloatToInt( AngAlarmOffset, 'H' )        ; break ;
+ 698   4              case 0x011E : pc_data = FloatToInt( GetAngXUsrZero()    , 'L' )  ; break ;
+ 699   4              case 0x011F : pc_data = FloatToInt( GetAngXUsrZero()    , 'H' )  ; break ;
+ 700   4              case 0x0120 : pc_data = FloatToInt( GetAngYUsrZero()    , 'L' )  ; break ;
+ 701   4              case 0x0121 : pc_data = FloatToInt( GetAngYUsrZero()    , 'H' )  ; break ;               
+ 702   4              case 0x0122 : pc_data = FloatToInt( GetAngXInst(), 'L' )         ; break ;
+ 703   4              case 0x0123 : pc_data = FloatToInt( GetAngXInst(), 'H' )         ; break ;
+ 704   4              case 0x0124 : pc_data = FloatToInt( GetAngYInst(), 'L' )         ; break ;
+ 705   4              case 0x0125 : pc_data = FloatToInt( GetAngYInst(), 'H' )         ; break ;
+ 706   4              case 0x0126 : pc_data = 0                                        ; break ;
+ 707   4              case 0x0127 : pc_data = 0                                        ; break ;
+ 708   4              case 0x0128 : pc_data = (GetFilterCnt())                         ; break ;
+ 709   4              case 0x0129 : pc_data = Addr                                     ; break ;
+ 710   4              case 0x012A : pc_data = 0                                        ; break ;
+ 711   4      //        case 0x012B : pc_data = 0                                        ; break ;
+ 712   4      
+ 713   4              //*************************************************************
+ 714   4              case 0xA000 : pc_data = 0xAC00                                   ; break ;
+ 715   4              case 0xA001 : pc_data = Get_McuTemp()                            ; break ;   //»ñÈ¡SensorÎÂ¶È  18/
+             -03/20        yyc
+ 716   4              case 0xA002 : //pc_data = TempA                                    ; break ;
+ 717   4              case 0xA003 : //pc_data = TempA                                    ; break ;
+ 718   4              case 0xA004 : //pc_data = TCalTemp[ 0]                             ; break ;
+ 719   4              case 0xA005 : //pc_data = TCalTemp[ 1]                             ; break ;
+ 720   4              case 0xA006 : //pc_data = TCalTemp[ 2]                             ; break ;
+ 721   4              case 0xA007 : //pc_data = TCalTemp[ 3]                             ; break ;
+ 722   4              case 0xA008 : //pc_data = TCalTemp[ 4]                             ; break ;
+ 723   4              case 0xA009 : //pc_data = TCalTemp[ 5]                             ; break ;
+ 724   4              case 0xA00A : //pc_data = TCalTemp[ 6]                             ; break ;
+ 725   4              case 0xA00B : //pc_data = TCalTemp[ 7]                             ; break ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 13  
+
+ 726   4              case 0xA00C : //pc_data = TCalTemp[ 8]                             ; break ;
+ 727   4              case 0xA00D : //pc_data = TCalTemp[ 9]                             ; break ;
+ 728   4              case 0xA00E : //pc_data = TCalTemp[10]                             ; break ;
+ 729   4              case 0xA00F : //pc_data = TCalTemp[11]                             ; break ;
+ 730   4              case 0xA010 : //pc_data = TCalTemp[12]                             ; break ;
+ 731   4              case 0xA011 : //pc_data = TCalTemp[13]                             ; break ;
+ 732   4              case 0xA012 : //pc_data = TCalTemp[14]                             ; break ;
+ 733   4              case 0xA013 : //pc_data = TCalTemp[15]                             ; break ;
+ 734   4              case 0xA014 : //pc_data = TCalTemp[16]                             ; break ;
+ 735   4              case 0xA015 : //pc_data = TCalTemp[17]                             ; break ;
+ 736   4              case 0xA016 : //pc_data = TCalTemp[18]                             ; break ;
+ 737   4              case 0xA017 : //pc_data = TCalTemp[19]                             ; break ;
+ 738   4              case 0xA018 : pc_data = GetTempXCalTempVal(addr-0xA004)            ; break ;   
+ 739   4              case 0xA019 : //pc_data = *( int16u* )&TCalXOffset[ 0]             ; break ;
+ 740   4              case 0xA01A : //pc_data = *( int16u* )&TCalXOffset[ 1]             ; break ;
+ 741   4              case 0xA01B : //pc_data = *( int16u* )&TCalXOffset[ 2]             ; break ;
+ 742   4              case 0xA01C : //pc_data = *( int16u* )&TCalXOffset[ 3]             ; break ;
+ 743   4              case 0xA01D : //pc_data = *( int16u* )&TCalXOffset[ 4]             ; break ;
+ 744   4              case 0xA01E : //pc_data = *( int16u* )&TCalXOffset[ 5]             ; break ;
+ 745   4              case 0xA01F : //pc_data = *( int16u* )&TCalXOffset[ 6]             ; break ;
+ 746   4              case 0xA020 : //pc_data = *( int16u* )&TCalXOffset[ 7]             ; break ;
+ 747   4              case 0xA021 : //pc_data = *( int16u* )&TCalXOffset[ 8]             ; break ;
+ 748   4              case 0xA022 : //pc_data = *( int16u* )&TCalXOffset[ 9]             ; break ;
+ 749   4              case 0xA023 : //pc_data = *( int16u* )&TCalXOffset[10]             ; break ;
+ 750   4              case 0xA024 : //pc_data = *( int16u* )&TCalXOffset[11]             ; break ;
+ 751   4              case 0xA025 : //pc_data = *( int16u* )&TCalXOffset[12]             ; break ;
+ 752   4              case 0xA026 : //pc_data = *( int16u* )&TCalXOffset[13]             ; break ;
+ 753   4              case 0xA027 : //pc_data = *( int16u* )&TCalXOffset[14]             ; break ;
+ 754   4              case 0xA028 : //pc_data = *( int16u* )&TCalXOffset[15]             ; break ;
+ 755   4              case 0xA029 : //pc_data = *( int16u* )&TCalXOffset[16]             ; break ;
+ 756   4              case 0xA02A : //pc_data = *( int16u* )&TCalXOffset[17]             ; break ;
+ 757   4              case 0xA02B : //pc_data = *( int16u* )&TCalXOffset[18]             ; break ;
+ 758   4              case 0xA02C : //pc_data = *( int16u* )&TCalXOffset[19]             ; break ;
+ 759   4      //        case 0xA02D : pc_data = GetTempXCalAdcVal(addr-0xA019)             ; break ;
+ 760   4              case 0xA02D : pc_data = (int16u)(GetTempXCalAdcVal(addr-0xA019)>>8)             ; break ;        
+ 761   4              case 0xA02E : //pc_data = *( int16u* )&TCalYOffset[ 0]             ; break ;
+ 762   4              case 0xA02F : //pc_data = *( int16u* )&TCalYOffset[ 1]             ; break ;
+ 763   4              case 0xA030 : //pc_data = *( int16u* )&TCalYOffset[ 2]             ; break ;
+ 764   4              case 0xA031 : //pc_data = *( int16u* )&TCalYOffset[ 3]             ; break ;
+ 765   4              case 0xA032 : //pc_data = *( int16u* )&TCalYOffset[ 4]             ; break ;
+ 766   4              case 0xA033 : //pc_data = *( int16u* )&TCalYOffset[ 5]             ; break ;
+ 767   4              case 0xA034 : //pc_data = *( int16u* )&TCalYOffset[ 6]             ; break ;
+ 768   4              case 0xA035 : //pc_data = *( int16u* )&TCalYOffset[ 7]             ; break ;
+ 769   4              case 0xA036 : //pc_data = *( int16u* )&TCalYOffset[ 8]             ; break ;
+ 770   4              case 0xA037 : //pc_data = *( int16u* )&TCalYOffset[ 9]             ; break ;
+ 771   4              case 0xA038 : //pc_data = *( int16u* )&TCalYOffset[10]             ; break ;
+ 772   4              case 0xA039 : //pc_data = *( int16u* )&TCalYOffset[11]             ; break ;
+ 773   4              case 0xA03A : //pc_data = *( int16u* )&TCalYOffset[12]             ; break ;
+ 774   4              case 0xA03B : //pc_data = *( int16u* )&TCalYOffset[13]             ; break ;
+ 775   4              case 0xA03C : //pc_data = *( int16u* )&TCalYOffset[14]             ; break ;
+ 776   4              case 0xA03D : //pc_data = *( int16u* )&TCalYOffset[15]             ; break ;
+ 777   4              case 0xA03E : //pc_data = *( int16u* )&TCalYOffset[16]             ; break ;
+ 778   4              case 0xA03F : //pc_data = *( int16u* )&TCalYOffset[17]             ; break ;
+ 779   4              case 0xA040 : //pc_data = *( int16u* )&TCalYOffset[18]             ; break ;
+ 780   4              case 0xA041 : //pc_data = *( int16u* )&TCalYOffset[19]             ; break ;
+ 781   4      //        case 0xA042 : pc_data = GetTempYCalAdcVal(addr-0xA02E)           ; break ;   //HXL 12/8/27
+ 782   4              case 0xA042 : pc_data = (int16u)(GetTempYCalAdcVal(addr-0xA02E)>>8)           ; break ;   //HXL 12
+             -/8/27        
+ 783   4              case 0xA043 : pc_data = Get_McuTemp() ;                          ; break ;
+ 784   4              case 0xA044 : pc_data = 0 ;                                      ; break ;
+ 785   4              case 0xA045 : pc_data = 0 ;                                      ; break ;
+ 786   4              case 0xA046 : pc_data = 0 ;                                      ; break ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 14  
+
+ 787   4              case 0xA047 : pc_data = 0 ;                                      ; break ;
+ 788   4              case 0xA048 : pc_data = 0 ;                                      ; break ;
+ 789   4              case 0xA049 : pc_data = 0 ;                                      ; break ;
+ 790   4              case 0xA04A : pc_data = 0 ;                                      ; break ;
+ 791   4              case 0xA04B : pc_data = 0 ;                                      ; break ;
+ 792   4              case 0xA04C : pc_data = 0 ;                                      ; break ;
+ 793   4              case 0xA04D : pc_data = 0 ;                                      ; break ;
+ 794   4              case 0xA04E : pc_data = 0 ;                                      ; break ;
+ 795   4              //******************************************************
+ 796   4              case 0xA100 : pc_data = 0xAC01 ;                                 ; break ;
+ 797   4              case 0xA101 : pc_data = (int16u)(GetXOftVal()>>8)                             ; break ;    //HXL 1
+             -2/8/27
+ 798   4              case 0xA102 : pc_data = FloatToInt(GetXAngAllSetVal(),'L')       ; break ;
+ 799   4              case 0xA103 : pc_data = FloatToInt(GetXAngAllSetVal(),'H')       ; break ;
+ 800   4              case 0xA104 : //pc_data = ACalXAdc[ 0]                             ; break ;
+ 801   4              case 0xA105 : //pc_data = ACalXAdc[ 1]                             ; break ;
+ 802   4              case 0xA106 : //pc_data = ACalXAdc[ 2]                             ; break ;
+ 803   4              case 0xA107 : //pc_data = ACalXAdc[ 3]                             ; break ;
+ 804   4              case 0xA108 : //pc_data = ACalXAdc[ 4]                             ; break ;
+ 805   4              case 0xA109 : //pc_data = ACalXAdc[ 5]                             ; break ;
+ 806   4              case 0xA10A : //pc_data = ACalXAdc[ 6]                             ; break ;
+ 807   4              case 0xA10B : //pc_data = ACalXAdc[ 7]                             ; break ;
+ 808   4              case 0xA10C : //pc_data = ACalXAdc[ 8]                             ; break ;
+ 809   4              case 0xA10D : //pc_data = ACalXAdc[ 9]                             ; break ;
+ 810   4              case 0xA10E : //pc_data = ACalXAdc[10]                             ; break ;
+ 811   4              case 0xA10F : //pc_data = ACalXAdc[11]                             ; break ;
+ 812   4              case 0xA110 : //pc_data = ACalXAdc[12]                             ; break ;
+ 813   4              case 0xA111 : //pc_data = ACalXAdc[13]                             ; break ;
+ 814   4              case 0xA112 : //pc_data = ACalXAdc[14]                             ; break ;
+ 815   4              case 0xA113 : //pc_data = ACalXAdc[15]                             ; break ;
+ 816   4              case 0xA114 : //pc_data = ACalXAdc[16]                             ; break ;
+ 817   4              case 0xA115 : //pc_data = ACalXAdc[17]                             ; break ;
+ 818   4              case 0xA116 : //pc_data = ACalXAdc[18]                             ; break ;
+ 819   4              case 0xA117 : //pc_data = ACalXAdc[19]                             ; break ;
+ 820   4              case 0xA118 : //pc_data = ACalXAdc[20]                             ; break ;
+ 821   4              case 0xA119 : //pc_data = ACalXAdc[21]                             ; break ;
+ 822   4              case 0xA11A : //pc_data = ACalXAdc[22]                             ; break ;
+ 823   4              case 0xA11B : //pc_data = ACalXAdc[23]                             ; break ;
+ 824   4      //        case 0xA11C : pc_data = GetAngXCalAdcVal(addr-0xA104)              ; break ;
+ 825   4              case 0xA11C : pc_data = (int16u)(GetAngXCalAdcVal(addr-0xA104)>>8)              ; break ;
+ 826   4              case 0xA11D : //pc_data = FloatToInt( ACalXAng[ 0], 'L' )          ; break ;
+ 827   4              case 0xA11F : //pc_data = FloatToInt( ACalXAng[ 1], 'L' )          ; break ;
+ 828   4              case 0xA121 : //pc_data = FloatToInt( ACalXAng[ 2], 'L' )          ; break ;
+ 829   4              case 0xA123 : //pc_data = FloatToInt( ACalXAng[ 3], 'L' )          ; break ;
+ 830   4              case 0xA125 : //pc_data = FloatToInt( ACalXAng[ 4], 'L' )          ; break ;
+ 831   4              case 0xA127 : //pc_data = FloatToInt( ACalXAng[ 5], 'L' )          ; break ;
+ 832   4              case 0xA129 : //pc_data = FloatToInt( ACalXAng[ 6], 'L' )          ; break ;
+ 833   4              case 0xA12B : //pc_data = FloatToInt( ACalXAng[ 7], 'L' )          ; break ;
+ 834   4              case 0xA12D : //pc_data = FloatToInt( ACalXAng[ 8], 'L' )          ; break ;
+ 835   4              case 0xA12F : //pc_data = FloatToInt( ACalXAng[ 9], 'L' )          ; break ;
+ 836   4              case 0xA131 : //pc_data = FloatToInt( ACalXAng[10], 'L' )          ; break ;
+ 837   4              case 0xA133 : //pc_data = FloatToInt( ACalXAng[11], 'L' )          ; break ;
+ 838   4              case 0xA135 : //pc_data = FloatToInt( ACalXAng[12], 'L' )          ; break ;
+ 839   4              case 0xA137 : //pc_data = FloatToInt( ACalXAng[13], 'L' )          ; break ;
+ 840   4              case 0xA139 : //pc_data = FloatToInt( ACalXAng[14], 'L' )          ; break ;
+ 841   4              case 0xA13B : //pc_data = FloatToInt( ACalXAng[15], 'L' )          ; break ;
+ 842   4              case 0xA13D : //pc_data = FloatToInt( ACalXAng[16], 'L' )          ; break ;
+ 843   4              case 0xA13F : //pc_data = FloatToInt( ACalXAng[17], 'L' )          ; break ;
+ 844   4              case 0xA141 : //pc_data = FloatToInt( ACalXAng[18], 'L' )          ; break ;
+ 845   4              case 0xA143 : //pc_data = FloatToInt( ACalXAng[19], 'L' )          ; break ;
+ 846   4              case 0xA145 : //pc_data = FloatToInt( ACalXAng[20], 'L' )          ; break ;
+ 847   4              case 0xA147 : //pc_data = FloatToInt( ACalXAng[21], 'L' )          ; break ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 15  
+
+ 848   4              case 0xA149 : //pc_data = FloatToInt( ACalXAng[22], 'L' )          ; break ;
+ 849   4              case 0xA14B : //pc_data = FloatToInt( ACalXAng[23], 'L' )          ; break ;
+ 850   4              case 0xA14D : pc_data = FloatToInt(GetAngXCalAngVal((addr-0xA11D)/2),'L'); break ; //HXL 12/8/27Õû
+             -ºÏ¸üÐÂ
+ 851   4              case 0xA11E : //pc_data = FloatToInt( ACalXAng[ 0], 'H' )          ; break ;
+ 852   4              case 0xA120 : //pc_data = FloatToInt( ACalXAng[ 1], 'H' )          ; break ;
+ 853   4              case 0xA122 : //pc_data = FloatToInt( ACalXAng[ 2], 'H' )          ; break ;
+ 854   4              case 0xA124 : //pc_data = FloatToInt( ACalXAng[ 3], 'H' )          ; break ;
+ 855   4              case 0xA126 : //pc_data = FloatToInt( ACalXAng[ 4], 'H' )          ; break ;
+ 856   4              case 0xA128 : //pc_data = FloatToInt( ACalXAng[ 5], 'H' )          ; break ;
+ 857   4              case 0xA12A : //pc_data = FloatToInt( ACalXAng[ 6], 'H' )          ; break ;
+ 858   4              case 0xA12C : //pc_data = FloatToInt( ACalXAng[ 7], 'H' )          ; break ;
+ 859   4              case 0xA12E : //pc_data = FloatToInt( ACalXAng[ 8], 'H' )          ; break ;
+ 860   4              case 0xA130 : //pc_data = FloatToInt( ACalXAng[ 9], 'H' )          ; break ;
+ 861   4              case 0xA132 : //pc_data = FloatToInt( ACalXAng[10], 'H' )          ; break ;
+ 862   4              case 0xA134 : //pc_data = FloatToInt( ACalXAng[11], 'H' )          ; break ;
+ 863   4              case 0xA136 : //pc_data = FloatToInt( ACalXAng[12], 'H' )          ; break ;
+ 864   4              case 0xA138 : //pc_data = FloatToInt( ACalXAng[13], 'H' )          ; break ;
+ 865   4              case 0xA13A : //pc_data = FloatToInt( ACalXAng[14], 'H' )          ; break ;
+ 866   4              case 0xA13C : //pc_data = FloatToInt( ACalXAng[15], 'H' )          ; break ;
+ 867   4              case 0xA13E : //pc_data = FloatToInt( ACalXAng[16], 'H' )          ; break ;
+ 868   4              case 0xA140 : //pc_data = FloatToInt( ACalXAng[17], 'H' )          ; break ;
+ 869   4              case 0xA142 : //pc_data = FloatToInt( ACalXAng[18], 'H' )          ; break ;
+ 870   4              case 0xA144 : //pc_data = FloatToInt( ACalXAng[19], 'H' )          ; break ;
+ 871   4              case 0xA146 : //pc_data = FloatToInt( ACalXAng[20], 'H' )          ; break ;
+ 872   4              case 0xA148 : //pc_data = FloatToInt( ACalXAng[21], 'H' )          ; break ;
+ 873   4              case 0xA14A : //pc_data = FloatToInt( ACalXAng[22], 'H' )          ; break ;
+ 874   4              case 0xA14C : //pc_data = FloatToInt( ACalXAng[23], 'H' )          ; break ;
+ 875   4              case 0xA14E : pc_data = FloatToInt(GetAngXCalAngVal((addr-0xA11E)/2),'H'); break ; 
+ 876   4              //******************************************************
+ 877   4              case 0xA200 : pc_data = 0xAC02 ;                                 ; break ;
+ 878   4      //        case 0xA201 : pc_data = GetYOftVal()                             ; break ;
+ 879   4              case 0xA201 : pc_data = (int16u)(GetYOftVal()>>8)                             ; break ;           
+             -          
+ 880   4              case 0xA202 : pc_data = FloatToInt(GetYAngAllSetVal(),'L')       ; break ;
+ 881   4              case 0xA203 : pc_data = FloatToInt(GetYAngAllSetVal(),'H')       ; break ;           
+ 882   4              case 0xA204 : //pc_data = ACalYAdc[ 0]                             ; break ;
+ 883   4              case 0xA205 : //pc_data = ACalYAdc[ 1]                             ; break ;
+ 884   4              case 0xA206 : //pc_data = ACalYAdc[ 2]                             ; break ;
+ 885   4              case 0xA207 : //pc_data = ACalYAdc[ 3]                             ; break ;
+ 886   4              case 0xA208 : //pc_data = ACalYAdc[ 4]                             ; break ;
+ 887   4              case 0xA209 : //pc_data = ACalYAdc[ 5]                             ; break ;
+ 888   4              case 0xA20A : //pc_data = ACalYAdc[ 6]                             ; break ;
+ 889   4              case 0xA20B : //pc_data = ACalYAdc[ 7]                             ; break ;
+ 890   4              case 0xA20C : //pc_data = ACalYAdc[ 8]                             ; break ;
+ 891   4              case 0xA20D : //pc_data = ACalYAdc[ 9]                             ; break ;
+ 892   4              case 0xA20E : //pc_data = ACalYAdc[10]                             ; break ;
+ 893   4              case 0xA20F : //pc_data = ACalYAdc[11]                             ; break ;
+ 894   4              case 0xA210 : //pc_data = ACalYAdc[12]                             ; break ;
+ 895   4              case 0xA211 : //pc_data = ACalYAdc[13]                             ; break ;
+ 896   4              case 0xA212 : //pc_data = ACalYAdc[14]                             ; break ;
+ 897   4              case 0xA213 : //pc_data = ACalYAdc[15]                             ; break ;
+ 898   4              case 0xA214 : //pc_data = ACalYAdc[16]                             ; break ;
+ 899   4              case 0xA215 : //pc_data = ACalYAdc[17]                             ; break ;
+ 900   4              case 0xA216 : //pc_data = ACalYAdc[18]                             ; break ;
+ 901   4              case 0xA217 : //pc_data = ACalYAdc[19]                             ; break ;
+ 902   4              case 0xA218 : //pc_data = ACalYAdc[20]                             ; break ;
+ 903   4              case 0xA219 : //pc_data = ACalYAdc[21]                             ; break ;
+ 904   4              case 0xA21A : //pc_data = ACalYAdc[22]                             ; break ;
+ 905   4              case 0xA21B : //pc_data = ACalYAdc[23]                             ; break ;
+ 906   4      //        case 0xA21C : pc_data = GetAngYCalAdcVal(addr-0xA204)              ; break ;  
+ 907   4              case 0xA21C : pc_data = (int16u)(GetAngYCalAdcVal(addr-0xA204)>>8)              ; break ; 
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 16  
+
+ 908   4              case 0xA21D : //pc_data = FloatToInt( ACalYAng[ 0], 'L' )          ; break ;
+ 909   4              case 0xA21F : //pc_data = FloatToInt( ACalYAng[ 1], 'L' )          ; break ;
+ 910   4              case 0xA221 : //pc_data = FloatToInt( ACalYAng[ 2], 'L' )          ; break ;
+ 911   4              case 0xA223 : //pc_data = FloatToInt( ACalYAng[ 3], 'L' )          ; break ;
+ 912   4              case 0xA225 : //pc_data = FloatToInt( ACalYAng[ 4], 'L' )          ; break ;
+ 913   4              case 0xA227 : //pc_data = FloatToInt( ACalYAng[ 5], 'L' )          ; break ;
+ 914   4              case 0xA229 : //pc_data = FloatToInt( ACalYAng[ 6], 'L' )          ; break ;
+ 915   4              case 0xA22B : //pc_data = FloatToInt( ACalYAng[ 7], 'L' )          ; break ;
+ 916   4              case 0xA22D : //pc_data = FloatToInt( ACalYAng[ 8], 'L' )          ; break ;
+ 917   4              case 0xA22F : //pc_data = FloatToInt( ACalYAng[ 9], 'L' )          ; break ;
+ 918   4              case 0xA231 : //pc_data = FloatToInt( ACalYAng[10], 'L' )          ; break ;
+ 919   4              case 0xA233 : //pc_data = FloatToInt( ACalYAng[11], 'L' )          ; break ;
+ 920   4              case 0xA235 : //pc_data = FloatToInt( ACalYAng[12], 'L' )          ; break ;
+ 921   4              case 0xA237 : //pc_data = FloatToInt( ACalYAng[13], 'L' )          ; break ;
+ 922   4              case 0xA239 : //pc_data = FloatToInt( ACalYAng[14], 'L' )          ; break ;
+ 923   4              case 0xA23B : //pc_data = FloatToInt( ACalYAng[15], 'L' )          ; break ;
+ 924   4              case 0xA23D : //pc_data = FloatToInt( ACalYAng[16], 'L' )          ; break ;
+ 925   4              case 0xA23F : //pc_data = FloatToInt( ACalYAng[17], 'L' )          ; break ;
+ 926   4              case 0xA241 : //pc_data = FloatToInt( ACalYAng[18], 'L' )          ; break ;
+ 927   4              case 0xA243 : //pc_data = FloatToInt( ACalYAng[19], 'L' )          ; break ;
+ 928   4              case 0xA245 : //pc_data = FloatToInt( ACalYAng[20], 'L' )          ; break ;
+ 929   4              case 0xA247 : //pc_data = FloatToInt( ACalYAng[21], 'L' )          ; break ;
+ 930   4              case 0xA249 : //pc_data = FloatToInt( ACalYAng[22], 'L' )          ; break ;
+ 931   4              case 0xA24B : //pc_data = FloatToInt( ACalYAng[23], 'L' )          ; break ;
+ 932   4              case 0xA24D : pc_data = FloatToInt(GetAngYCalAngVal((addr-0xA21D)/2),'L'); break ;   
+ 933   4              case 0xA21E : //pc_data = FloatToInt( ACalYAng[ 0], 'H' )          ; break ;
+ 934   4              case 0xA220 : //pc_data = FloatToInt( ACalYAng[ 1], 'H' )          ; break ;
+ 935   4              case 0xA222 : //pc_data = FloatToInt( ACalYAng[ 2], 'H' )          ; break ;
+ 936   4              case 0xA224 : //pc_data = FloatToInt( ACalYAng[ 3], 'H' )          ; break ;
+ 937   4              case 0xA226 : //pc_data = FloatToInt( ACalYAng[ 4], 'H' )          ; break ;
+ 938   4              case 0xA228 : //pc_data = FloatToInt( ACalYAng[ 5], 'H' )          ; break ;
+ 939   4              case 0xA22A : //pc_data = FloatToInt( ACalYAng[ 6], 'H' )          ; break ;
+ 940   4              case 0xA22C : //pc_data = FloatToInt( ACalYAng[ 7], 'H' )          ; break ;
+ 941   4              case 0xA22E : //pc_data = FloatToInt( ACalYAng[ 8], 'H' )          ; break ;
+ 942   4              case 0xA230 : //pc_data = FloatToInt( ACalYAng[ 9], 'H' )          ; break ;
+ 943   4              case 0xA232 : //pc_data = FloatToInt( ACalYAng[10], 'H' )          ; break ;
+ 944   4              case 0xA234 : //pc_data = FloatToInt( ACalYAng[11], 'H' )          ; break ;
+ 945   4              case 0xA236 : //pc_data = FloatToInt( ACalYAng[12], 'H' )          ; break ;
+ 946   4              case 0xA238 : //pc_data = FloatToInt( ACalYAng[13], 'H' )          ; break ;
+ 947   4              case 0xA23A : //pc_data = FloatToInt( ACalYAng[14], 'H' )          ; break ;
+ 948   4              case 0xA23C : //pc_data = FloatToInt( ACalYAng[15], 'H' )          ; break ;
+ 949   4              case 0xA23E : //pc_data = FloatToInt( ACalYAng[16], 'H' )          ; break ;
+ 950   4              case 0xA240 : //pc_data = FloatToInt( ACalYAng[17], 'H' )          ; break ;
+ 951   4              case 0xA242 : //pc_data = FloatToInt( ACalYAng[18], 'H' )          ; break ;
+ 952   4              case 0xA244 : //pc_data = FloatToInt( ACalYAng[19], 'H' )          ; break ;
+ 953   4              case 0xA246 : //pc_data = FloatToInt( ACalYAng[20], 'H' )          ; break ;
+ 954   4              case 0xA248 : //pc_data = FloatToInt( ACalYAng[21], 'H' )          ; break ;
+ 955   4              case 0xA24A : //pc_data = FloatToInt( ACalYAng[22], 'H' )          ; break ;
+ 956   4              case 0xA24C : //pc_data = FloatToInt( ACalYAng[23], 'H' )          ; break ;
+ 957   4              case 0xA24E : pc_data = FloatToInt(GetAngYCalAngVal((addr-0xA21E)/2),'H'); break ;     
+ 958   4              //*************************************************************
+ 959   4              case 0xA300 : pc_data = 0xAC03                                      ; break ;
+ 960   4              case 0xA301 : pc_data = SystemVer[ 0] *256 + SystemVer[ 1]          ; break ;
+ 961   4              case 0xA302 : pc_data = SystemVer[ 2] *256 + SystemVer[ 3]          ; break ;
+ 962   4              case 0xA303 : pc_data = SystemVer[ 4] *256 + SystemVer[ 5]          ; break ;
+ 963   4              case 0xA304 : pc_data = SystemVer[ 6] *256 + SystemVer[ 7]          ; break ;
+ 964   4              case 0xA305 : pc_data = SystemVer[ 8] *256 + SystemVer[ 9]          ; break ;
+ 965   4              case 0xA306 : pc_data = SystemVer[10] *256 + SystemVer[11]          ; break ;
+ 966   4              case 0xA307 : pc_data = SystemVer[12] *256 + SystemVer[13]          ; break ;
+ 967   4              case 0xA308 : pc_data = SystemVer[14] *256 + SystemVer[15]          ; break ;
+ 968   4              case 0xA309 : pc_data = (int16u)(GetXFtVal()>>8)                                 ; break ;
+ 969   4              case 0xA30A : pc_data = (int16u)(GetYFtVal()>>8)                                 ; break ;
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 17  
+
+ 970   4              case 0xA30B : pc_data = (int16u)(GetXOftVal()>>8)                                ; break ;
+ 971   4              case 0xA30C : pc_data = (int16u)(GetYOftVal()>>8)                                ; break ;
+ 972   4              case 0xA30D : pc_data = FloatToInt( GetXAng()         ,'L' )        ; break ;
+ 973   4              case 0xA30E : pc_data = FloatToInt( GetXAng()         ,'H' )        ; break ;
+ 974   4              case 0xA30F : pc_data = FloatToInt( GetYAng()         ,'L' )        ; break ;
+ 975   4              case 0xA310 : pc_data = FloatToInt( GetYAng()         ,'H' )        ; break ;
+ 976   4              case 0xA311 : pc_data = FloatToInt( GetAngXRelSys()  ,'L' )        ; break ;
+ 977   4              case 0xA312 : pc_data = FloatToInt( GetAngXRelSys()  ,'H' )        ; break ;
+ 978   4              case 0xA313 : pc_data = FloatToInt( GetAngYRelSys()  ,'L' )        ; break ;
+ 979   4              case 0xA314 : pc_data = FloatToInt( GetAngYRelSys()  ,'H' )        ; break ;
+ 980   4              case 0xA315 : pc_data = FloatToInt( GetAngXZeroUsr()     ,'L' )     ; break ;
+ 981   4              case 0xA316 : pc_data = FloatToInt( GetAngXZeroUsr()     ,'H' )     ; break ;
+ 982   4              case 0xA317 : pc_data = FloatToInt( GetAngYZeroUsr()     ,'L' )     ; break ;
+ 983   4              case 0xA318 : pc_data = FloatToInt( GetAngYZeroUsr()     ,'H' )     ; break ;
+ 984   4              case 0xA319 : pc_data = FloatToInt( GetXAngAllSetVal() ,'L' )       ; break ;
+ 985   4              case 0xA31A : pc_data = FloatToInt( GetXAngAllSetVal() ,'H' )       ; break ;
+ 986   4              case 0xA31B : pc_data = FloatToInt( GetYAngAllSetVal() ,'L' )       ; break ;
+ 987   4              case 0xA31C : pc_data = FloatToInt( GetYAngAllSetVal() ,'H' )       ; break ;
+ 988   4              case 0xA31D : pc_data = FloatToInt( GetAngP(), 'L' )                ; break ;
+ 989   4              case 0xA31E : pc_data = FloatToInt( GetAngP(), 'H' )                ; break ;
+ 990   4              case 0xA31F : pc_data = FloatToInt( GetAngXSet(), 'L' )             ; break ;
+ 991   4              case 0xA320 : pc_data = FloatToInt( GetAngXSet(), 'H' )             ; break ;
+ 992   4              case 0xA321 : pc_data = FloatToInt( GetAngYSet(), 'L' )             ; break ;
+ 993   4              case 0xA322 : pc_data = FloatToInt( GetAngYSet(), 'H' )             ; break ;
+ 994   4              case 0xA323 : pc_data = FloatToInt( GetAngPSet(), 'L' )             ; break ;
+ 995   4              case 0xA324 : pc_data = FloatToInt( GetAngPSet(), 'H' )             ; break ;
+ 996   4              case 0xA325 : pc_data = FloatToInt( AngAlarmOffset, 'L' )           ; break ;
+ 997   4              case 0xA326 : pc_data = FloatToInt( AngAlarmOffset, 'H' )           ; break ;
+ 998   4              case 0xA327 : pc_data = FloatToInt( GetAngXSysZero()   , 'L' )      ; break ;
+ 999   4              case 0xA328 : pc_data = FloatToInt( GetAngXSysZero()   , 'H' )      ; break ;
+1000   4              case 0xA329 : pc_data = FloatToInt( GetAngYSysZero()   , 'L' )      ; break ;
+1001   4              case 0xA32A : pc_data = FloatToInt( GetAngYSysZero()   , 'H' )      ; break ;
+1002   4              case 0xA32B : pc_data = FloatToInt( GetAngXUsrZero()        , 'L' ) ; break ;
+1003   4              case 0xA32C : pc_data = FloatToInt( GetAngXUsrZero()        , 'H' ) ; break ;
+1004   4              case 0xA32D : pc_data = FloatToInt( GetAngYUsrZero()        , 'L' ) ; break ;
+1005   4              case 0xA32E : pc_data = FloatToInt( GetAngYUsrZero()        , 'H' ) ; break ;
+1006   4              case 0xA32F : pc_data = FloatToInt( GetAngXInst()    , 'L' )        ; break ;
+1007   4              case 0xA330 : pc_data = FloatToInt( GetAngXInst()    , 'H' )        ; break ;
+1008   4              case 0xA331 : pc_data = FloatToInt( GetAngYInst()    , 'L' )        ; break ;
+1009   4              case 0xA332 : pc_data = FloatToInt( GetAngYInst()    , 'H' )        ; break ;
+1010   4      
+1011   4              case 0xA333 :// pc_data = 0                                           ; break ;
+1012   4              case 0xA334 :// pc_data = 0                                           ; break ;
+1013   4              case 0xA335 :// pc_data = CalXDaOutV[addr-0xA326]                               ; break ;   //XÖáDAµçÑ¹µçÁ÷Êý¾Ý
+1014   4              case 0xA336 :// pc_data = 0                                           ; break ;
+1015   4              case 0xA337 :// pc_data = 0                                           ; break ;
+1016   4              case 0xA338 :// pc_data = CalXDaData[addr-0xA329]                               ; break ;   //XÖáDAÊý¾Ý        
+1017   4              
+1018   4              case 0xA339 :// pc_data = 0                                           ; break ;
+1019   4              case 0xA33A :// pc_data = 0                                           ; break ;
+1020   4              case 0xA33B :// pc_data = CalYDaOutV[addr-0xA326]                               ; break ;   //YÖáDAµçÑ¹µçÁ÷Êý¾Ý
+1021   4              case 0xA33C :// pc_data = 0                                           ; break ;
+1022   4              case 0xA33D :// pc_data = 0                                           ; break ;
+1023   4              case 0xA33E :// pc_data = CalYDaData[addr-0xA329]                               ; break ;   //YÖáDAÊý¾Ý         
+             - 
+1024   4       
+1025   4              case 0xA33F :// pc_data = FloatToInt( Get_AngLow()    , 'L' )      ; break ; //»ñÈ¡DAÊä³ö¶ÔÓ¦µÄ×îÐ
+             -¡½Ç¶È
+1026   4              case 0xA340 :// pc_data = FloatToInt( Get_AngLow()    , 'H' )      ; break ; //»ñÈ¡DAÊä³ö¶ÔÓ¦µÄ×îÐ
+             -¡½Ç¶È
+1027   4              case 0xA341 :// pc_data = FloatToInt( Get_AngHigh()    , 'L' )     ; break ; //»ñÈ¡DAÊä³ö¶ÔÓ¦µÄ×î´
+             -ó½Ç¶È
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 18  
+
+1028   4              case 0xA342 :pc_data = 0 ; break ;// pc_data = FloatToInt( Get_AngHigh()    , 'H' )     ; break ; 
+             -//»ñÈ¡DAÊä³ö¶ÔÓ¦µÄ×î´ó½Ç¶È
+1029   4      
+1030   4              case 0xA343 : pc_data = '0'*256+'1'                                 ; break ;
+1031   4              case 0xA344 : pc_data = '1'*256+'4'                                 ; break ;
+1032   4              case 0xA345 : pc_data = 2013                                               ; break ;
+1033   4              case 0xA346 : pc_data = 1024                                               ; break ;
+1034   4              case 0xA347 : pc_data = 0                                           ; break ;
+1035   4              case 0xA348 : pc_data = (GetAngXCalCnt() *256) + GetTempXCalCnt()   ; break ;
+1036   4              case 0xA349 : pc_data = AngRange                                    ; break ;
+1037   4              case 0xA34A : pc_data = SendActPosi                                 ; break ;
+1038   4              case 0xA34B : pc_data = SendSpeedNum                                ; break ;
+1039   4              case 0xA34C : pc_data = GetFilterCnt()                              ; break ;
+1040   4              case 0xA34D : pc_data = 0                                           ; break ;
+1041   4              case 0xA34E : pc_data = 224                                         ; break ;
+1042   4          }
+1043   3      }
+1044   2              default:    *excode=2;
+1045   2                                              return(FALSE);
+1046   2       //       default:     return(FALSE);
+1047   2          }
+1048   1          ModRtu_Rd16u( buf, pc_data ) ;
+1049   1          return(TRUE);
+1050   1      }
+1051          //***********************************************************************/
+1052          // *¹¦    ÄÜ£º¶Á¼Ä´æÆ÷µÄÖµ
+1053          // *Èë    ¿Ú£º
+1054          // *³ö    ¿Ú£º
+1055          // *±¸    ×¢£º
+1056          // *º¯ÊýÐÔÖÊ£º  
+1057          //Ö÷»ú·¢ËÍÃüÁî£º[Éè±¸µØÖ·]+[ÃüÁîºÅ]+[ÆðÊ¼¼Ä´æÆ÷µØÖ·¸ß8Î»][µÍ8Î»]
+1058          //                       +[¶ÁÈ¡µÄ¼Ä´æÆ÷Êý¸ß8Î»][µÍ8Î»]+[CRCÐ£ÑéµÄµÍ8Î»][CRCÐ£ÑéµÄ¸ß8Î»]
+1059          //Éè±¸ÏìÓ¦£º         
+1060          //      [Éè±¸µØÖ·] [ÃüÁîºÅ] [·µ»ØµÄ×Ö½Ú¸öÊý][Êý¾Ý1][Êý¾Ý2]...[Êý¾Ýn][CRCÐ£ÑéµÄµÍ8Î»] [CRCÐ£ÑéµÄ¸ß8Î»]
+1061          
+1062          //***********************************************************************/
+1063          void ModRtu_RdReg (int8u* buf)
+1064          {   int16u xdata addr;
+1065   1          int16u xdata i,j;
+1066   1          int16u xdata crc=0;
+1067   1          int8u xdata err_code = 0,excode;
+1068   1      
+1069   1          if(buf[0] == 0)return;              //²»Ö§³Ö¹ã²¥·½Ê½
+1070   1          addr = ModRtu_8to16(&buf[2]);               //¶ÁÒª¶ÁÈ¡¼Ä´æÆ÷µÄÆðÊ¼µØÖ· h=buf[2],l=buf[3]
+1071   1          j = ModRtu_8to16(&buf[4]);                  //¶ÁÈ¡µÄ¼Ä´æÆ÷Êý h=buf[4],l=buf[5]
+1072   1          for(i = 0; i < j; i++)
+1073   1          {
+1074   2              if(FALSE == ModRtu_RdVal(addr,&buf[3+i*2],&excode))
+1075   2              {
+1076   3                  err_code = 1;
+1077   3                  break;
+1078   3              }
+1079   2              addr++;
+1080   2          }
+1081   1          if(err_code == 1)
+1082   1          {
+1083   2              ModRtu_RlyError(buf,excode);
+1084   2              return;
+1085   2          }
+1086   1          buf[2] = j*2;                               //Êý¾Ý³¤¶È
+1087   1          i = j*2+3;                                          //CRCµÄ¼Ä´æÆ÷¸öÊý=Éè±¸ºÅ+ÃüÁîºÅ+Êý¾Ý×ÜÊý+Êý¾ÝÊý
+1088   1          crc = ModbusCrcCnt(buf,i);          //¼ÆËãCRC
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 19  
+
+1089   1          ModRtu_WrCrc(&buf[i],crc);      //Ð´ÈëCRCÐ£ÑéÂë
+1090   1          Comm_PutStr(buf,i+2);                       //i+2 ¼Ó2ÊÇÖ¸¼ÓCRCµÄ½á¹û
+1091   1          Comm_SendSta();
+1092   1      }
+1093          //***********************************************************************/
+1094          // *¹¦    ÄÜ£ºÐ´¼Ä´æÆ÷µÄÖµ
+1095          // *Èë    ¿Ú£º
+1096          // *³ö    ¿Ú£º
+1097          // *±¸    ×¢£º
+1098          // *º¯ÊýÐÔÖÊ£º
+1099          //***********************************************************************/
+1100          void ModRtu_WrReg (int8u* buf,int8u n)
+1101          {   int16u xdata addr;
+1102   1          int16u xdata i,j;
+1103   1          int16u xdata crc;
+1104   1          int8u xdata err_code = 0,excode;
+1105   1      
+1106   1          j = ModRtu_8to16(&buf[4]);
+1107   1          if((n != (j*2+9))||(buf[6]!= (j*2)))    return;     //Êý¾Ý³¤¶ÈÅÐ¶Ï
+1108   1          addr = ModRtu_8to16(&buf[2]);                                       //µØÖ·
+1109   1          for(i = 0; i < j; i++)
+1110   1          {
+1111   2              if(FALSE == ModRtu_WrVal(addr,&buf[7+i*2],&excode))
+1112   2              {
+1113   3                  err_code = 1;
+1114   3                  break;
+1115   3              }
+1116   2              addr++;
+1117   2          }
+1118   1          if(buf[0] == 0) return;         //¹ã²¥·½Ê½ÎÞ·µ»Ø
+1119   1          if(err_code == 1)
+1120   1          {
+1121   2              ModRtu_RlyError(buf,excode);
+1122   2              return;
+1123   2          }
+1124   1          crc = ModbusCrcCnt(buf,6);
+1125   1          ModRtu_WrCrc(&buf[6],crc);
+1126   1      //    Comm_PutStr(buf,8);
+1127   1      //    Comm_SendSta();
+1128   1          if(  1 == udflashtag )
+1129   1          {
+1130   2              udflashtag=0;
+1131   2                      Flash_UserDataUpdate();
+1132   2          }
+1133   1      }
+1134          //***********************************************************************/
+1135          // *¹¦    ÄÜ£ºÍ¨Ñ¶Òì³£´¦Àí
+1136          // *Èë    ¿Ú£º
+1137          // *³ö    ¿Ú£º
+1138          // *±¸    ×¢£º
+1139          // *º¯ÊýÐÔÖÊ£º
+1140          //***********************************************************************/
+1141          /*void ModRtu_RlyError (int8u* buf)
+1142          {   int16u crc;
+1143          
+1144              buf[1] |= 0x80;                 //¹¦ÄÜÂë×î¸ßÎ»ÉèÖÃÎª1
+1145              buf[2] = 0xff;
+1146              crc = ModbusCrcCnt(buf,6);
+1147              buf[3] = MR_READ_REGL(crc);
+1148              buf[4] = MR_READ_REGH(crc);
+1149              Comm_PutStr(buf,5);
+1150              Comm_SendSta();
+C51 COMPILER V9.01   MODBUSRTU                                                             06/01/2018 17:39:15 PAGE 20  
+
+1151          }*/
+1152          void ModRtu_RlyError (int8u* buf,int8u excode)
+1153          {   int16u xdata crc;
+1154   1      
+1155   1          buf[1] |= 0x80;                 //¹¦ÄÜÂë×î¸ßÎ»ÉèÖÃÎª1
+1156   1          buf[2] = excode;
+1157   1          crc = ModbusCrcCnt(buf,3);      //liuliu ¸ü¸Ä³¤¶È,Ô­Îª6,error
+1158   1          buf[3] = MR_READ_REGH(crc);     //liuliu 2013-04-01
+1159   1          buf[4] = MR_READ_REGL(crc);         //liuliu 2013-04-01
+1160   1          Comm_PutStr(buf,5);
+1161   1          Comm_SendSta();
+1162   1      }
+1163          //***********************************************************************/
+1164          // *¹¦    ÄÜ£º½ÓÊÕÊý¾ÝÖ¡´¦Àí
+1165          // *Èë    ¿Ú£º
+1166          // *³ö    ¿Ú£º
+1167          // *±¸    ×¢£º
+1168          // *º¯ÊýÐÔÖÊ£º
+1169          //***********************************************************************/
+1170          void ModRtu_RxProc (int8u* buf, int8u n)
+1171          {
+1172   1          if(FALSE == ModRtu_ChkCrc(buf,n)) return;                   //¼ÆËãÐ£Ñé½á¹û
+1173   1      
+1174   1          switch(buf[1])
+1175   1          {
+1176   2              case READ:          ModRtu_RdReg(buf);                                  // ¶ÁÈ¡¼Ä´æÆ÷
+1177   2                                  break;
+1178   2              case WRITE:         ModRtu_WrReg(buf,n);                                // Ð´¼Ä´æÆ÷
+1179   2                                  break;
+1180   2              default:            ModRtu_RlyError(buf,1);
+1181   2                                  break;
+1182   2          }
+1183   1      }
+1184          
+1185          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   6625    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     15      34
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      43
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,88 @@
+C51 COMPILER V9.01   KEY                                                                   06/01/2018 17:39:17 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\obj\Key.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Key.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\li
+                    -st\Key.lst) OBJECT(.\obj\Key.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  Key.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：   
+   6          * 日  期：   
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define  __KEY_C__
+  18          #include  "_Include.h"
+  19          //***********************************************************************/
+  20          // *功    能：
+  21          // *入    口：
+  22          // *出    口：
+  23          // *备    注：
+  24          // *函数性质：
+  25          //***********************************************************************/
+  26          #if 0
+              static int8u Key_Down(void)
+              {   static int16u xdata KeyTime=0;//mS
+              
+              
+                  KEY_IO=1;
+                  delay_cyc(1);
+                  if(KEY_IO!=1)
+                  {   if(KeyTime>KEY_TIME) return(FALSE);
+                      KeyTime++;
+                      if(KeyTime==KEY_TIME)
+                      return(TRUE);
+                      else
+                      return(FALSE);
+                  }
+                  else
+                  {   KeyTime=0;
+                      return(FALSE);
+                  }
+              }
+              //***********************************************************************/
+              
+              void Key_Proc(void)
+              {
+                      if (FALSE == KeyEnb) return;
+                  if(TRUE == Key_Down())
+                  {
+                      SetAngXUsrZero(GetAngXRelSys());
+                      SetAngYUsrZero(GetAngYRelSys());    //用户置0);    //HXL 12/8/26整合更新
+C51 COMPILER V9.01   KEY                                                                   06/01/2018 17:39:17 PAGE 2   
+
+                      Comm_PutStr("set zero",8);
+                      Sub_SendOk();
+                      Flash_UserDataUpdate();                         //清零一次，保存一次数据
+                  }
+              }
+              #endif
+  61          //***********************************************************************/
+  62          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

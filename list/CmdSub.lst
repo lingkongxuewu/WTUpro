@@ -1,0 +1,305 @@
+C51 COMPILER V9.01   CMDSUB                                                                06/01/2018 17:39:14 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE CMDSUB
+OBJECT MODULE PLACED IN .\obj\CmdSub.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\CmdSub.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.
+                    -\list\CmdSub.lst) OBJECT(.\obj\CmdSub.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  CmdSub.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：   
+   6          * 日  期：   
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define __CMDSUB_C__
+  18          #include "_Include.h"
+  19          
+  20          static int32s xdata temp_xcalref;
+  21          static int32s xdata temp_ycalref;
+  22          static struct sensor xdata *px_axis=&accel_x;
+  23          static struct sensor xdata *py_axis=&accel_y;
+  24          
+  25          
+  26          
+  27          //***********************************************************************/
+  28          // *功    能：根据角度值替换角度ADC值
+  29          // *入    口：ang,角度值；adc，角度ADC值;num,数组大小;angarr，角度数组指针;
+  30          //            adcarr,角度ADC值数组指针
+  31          // *出    口：TRUE，成功;FALSE，失败
+  32          // *备    注：
+  33          // *函数性质：
+  34          //***********************************************************************/
+  35          
+  36          
+  37          
+  38          int8u AngChkDiff(int32s ang,int32u adc,int8u num,int32s* angarr,int32u* adcarr)
+  39          {       
+  40   1              int8u xdata i;
+  41   1              for(i=0;i<num;i++)
+  42   1              {       if(ang==angarr[i])       //查找角度在数组中的位置
+  43   2                      {       
+  44   3                              adcarr[i] = adc;    //在相应的位置插入ADC值
+  45   3                              return TRUE;
+  46   3                      }
+  47   2              }
+  48   1              return FALSE;               //不在范围内
+  49   1      }
+  50          
+  51          //***********************************************************************/
+  52          // *功    能：16位冒泡派讯
+  53          // *入    口：buf,需排序的缓存;n,排序的元素个数
+  54          // *出    口：
+C51 COMPILER V9.01   CMDSUB                                                                06/01/2018 17:39:14 PAGE 2   
+
+  55          // *备    注：
+  56          // *函数性质：
+  57          //***********************************************************************/
+  58          /*
+  59          void Bubble16B (int16s* buf, int8u n)
+  60          {               
+  61                  int8u i,j;
+  62                  for(i=0;i<n;i++)
+  63                  {       for(j=n-1;j>i;j--)
+  64                          {       if(buf[i]>buf[j])
+  65                                  {       
+  66                                          buf[i]+=buf[j];
+  67                                          buf[j]=buf[i]-buf[j];
+  68                                          buf[i]=buf[i]-buf[j];
+  69                                  }
+  70                          }
+  71                  }
+  72          }
+  73           */
+  74          //***********************************************************************/
+  75          // *功    能：根据温度进行升序排序，并计算温度补偿系数
+  76          // *入    口：
+  77          // *出    口：
+  78          // *备    注：
+  79          // *函数性质：
+  80          //***********************************************************************/
+  81          static void TempSortAndCalcPrm ()
+  82          {
+  83   1      
+  84   1              Sub_BufBubble2(px_axis->tempcal->ptempval,px_axis->tempcal->adcarr,py_axis->tempcal->adcarr,py_axis->temp
+             -cal->calcnt);//温补模块中温度排序
+  85   1      
+  86   1              TempXCalcPrm();                                 //X轴温补参数计算
+  87   1              TempYCalcPrm();                                 //Y轴温补参数计算 
+  88   1      }
+  89          
+  90          //***********************************************************************/
+  91          // *功    能：写入温度补偿参数
+  92          // *入    口：
+  93          // *出    口：
+  94          // *备    注：
+  95          // *函数性质：
+  96          //***********************************************************************/
+  97          void Temp_CalValWr (int8u id,int16u temp,int32s x,int32s y)
+  98          {
+  99   1              px_axis->tempcal->WrTempVal(temp,id);    //写温度AD值
+ 100   1              SetTempXCalAdcVal(x,id);
+ 101   1              SetTempYCalAdcVal(y,id);                                 //写入温度补偿数组的差值ad
+ 102   1      }
+ 103          //***********************************************************************/
+ 104          // *功    能：温补开始
+ 105          // *入    口：
+ 106          // *出    口：
+ 107          // *备    注：用于通信中
+ 108          // *函数性质：
+ 109          //***********************************************************************/
+ 110          int8u Temp_CalSta (void)
+ 111          {
+ 112   1              if(MenuId!=MOD_MOD0)return FALSE;
+ 113   1              MenuId=MOD_T_CAL;
+ 114   1              return TRUE;
+ 115   1      }
+C51 COMPILER V9.01   CMDSUB                                                                06/01/2018 17:39:14 PAGE 3   
+
+ 116          //***********************************************************************/
+ 117          // *功    能：温补结束
+ 118          // *入    口：
+ 119          // *出    口：
+ 120          // *备    注：
+ 121          // *函数性质：
+ 122          //***********************************************************************/
+ 123          int8u Temp_CalStop (void)
+ 124          {
+ 125   1              if(MenuId!=MOD_T_CAL)return FALSE;
+ 126   1              MenuId=MOD_MOD0;
+ 127   1              TempSortAndCalcPrm();
+ 128   1              return TRUE;
+ 129   1      }
+ 130          //***********************************************************************/
+ 131          int8u Temp_CalSamp (int8u id,int16u temp,int32s x,int32s y)
+ 132          {
+ 133   1              if((MenuId!=MOD_T_CAL)||(id>TEMP_CAL_NUM))
+ 134   1              return FALSE;
+ 135   1                      
+ 136   1              if(0==id)                                               //以第一个标定温度为参考温度
+ 137   1              {
+ 138   2                      temp_xcalref  = x;
+ 139   2                      temp_ycalref  = y;
+ 140   2              };
+ 141   1              Sub_SendAdcTXY(temp,x,y);
+ 142   1              Temp_CalValWr(id,temp,(temp_xcalref-x),(temp_ycalref-y));
+ 143   1              return TRUE;
+ 144   1      }
+ 145          //***********************************************************************/
+ 146          // *功    能：设置温补模块中相对参考点
+ 147          // *入    口：id,参考点位置
+ 148          // *出    口：
+ 149          // *备    注：
+ 150          // *函数性质：
+ 151          //***********************************************************************/
+ 152          int8u Temp_CalTRefSet (int8u id)
+ 153          {       int8u xdata i;
+ 154   1              int32s xdata x,y;
+ 155   1              
+ 156   1              
+ 157   1              if(id>(px_axis->tempcal->calcnt-1))return FALSE;
+ 158   1              x = px_axis->tempcal->RdAdcVal(id);
+ 159   1              y = py_axis->tempcal->RdAdcVal(id);
+ 160   1              
+ 161   1              for(i=0;i<(px_axis->tempcal->calcnt);i++)
+ 162   1              {
+ 163   2                      px_axis->tempcal->adcarr[i] -= x;    //X轴相对AD值（角度0）
+ 164   2                      py_axis->tempcal->adcarr[i] -= y;    //Y轴相对AD值（角度0）
+ 165   2              }
+ 166   1              MenuId=MOD_T_CAL;
+ 167   1              Temp_CalStop();
+ 168   1              return TRUE;
+ 169   1      }
+ 170          
+ 171          
+ 172          
+ 173          //***********************************************************************/
+ 174          // *功    能：X轴角度标定开始
+ 175          // *入    口：
+ 176          // *出    口：
+ 177          // *备    注：
+C51 COMPILER V9.01   CMDSUB                                                                06/01/2018 17:39:14 PAGE 4   
+
+ 178          // *函数性质：
+ 179          //***********************************************************************/
+ 180          int8u Adc_XCalSta (void)
+ 181          {
+ 182   1              if(MenuId!=MOD_MOD0)return FALSE;
+ 183   1              MenuId=MOD_X_CAL;
+ 184   1              ACalXId=0;
+ 185   1              return TRUE;
+ 186   1      }
+ 187          //***********************************************************************/
+ 188          // *功    能：X轴角度标定
+ 189          // *入    口：ang,角度值;adc,角度ADC值
+ 190          // *出    口：TRUE,保存成功;FALSE，失败
+ 191          // *备    注：当重新标定某个角度值是，原来的AD值将会被替换
+ 192          // *函数性质：
+ 193          //***********************************************************************/
+ 194          int8u Adc_XCalProc (int32s ang,int32u adc)
+ 195          {
+ 196   1              if(MenuId!=MOD_X_CAL)return FALSE;
+ 197   1              if((ACalXId>0)&&(TRUE==AngChkDiff(ang,adc,ACalXId,px_axis->angcal->angarr,px_axis->angcal->adcarr)))
+ 198   1                      return TRUE;                                                                            //替换成功
+ 199   1              if(ACalXId>=px_axis->angcal->calcnt) return FALSE;
+ 200   1              px_axis->angcal->angarr[ACalXId]=ang;                                   //写入新值
+ 201   1              px_axis->angcal->adcarr[ACalXId]=adc;
+ 202   1              ACalXId++;
+ 203   1              return TRUE;
+ 204   1      }
+ 205          //***********************************************************************/
+ 206          // *功    能：X轴角度标定结束
+ 207          // *入    口：
+ 208          // *出    口：标定参数 A,K
+ 209          // *备    注：
+ 210          // *函数性质：
+ 211          //***********************************************************************/
+ 212          
+ 213          int8u Adc_XCalStop (void)
+ 214          {       
+ 215   1              int8u n=px_axis->angcal->calcnt-1;
+ 216   1              
+ 217   1              if(ACalXId<px_axis->angcal->calcnt)  return FALSE;
+ 218   1              if(MenuId!=MOD_X_CAL)return FALSE;
+ 219   1              MenuId=MOD_MOD0;
+ 220   1              Sub_BufBubble(px_axis->angcal->angarr,px_axis->angcal->adcarr,px_axis->angcal->calcnt);//排序角度值和角度
+             -AD值
+ 221   1      //      px_axis->angcal->CalcPrm();                                                                                                                //标定参数计算
+ 222   1              AngXCalcPrm();                             
+ 223   1              return TRUE;
+ 224   1      }
+ 225          
+ 226          
+ 227          //***********************************************************************/
+ 228          // *功    能：X轴角度标定开始
+ 229          // *入    口：
+ 230          // *出    口：
+ 231          // *备    注：
+ 232          // *函数性质：
+ 233          //***********************************************************************/
+ 234          int8u Adc_YCalSta (void)
+ 235          {
+ 236   1              if(MenuId!=MOD_MOD0)return FALSE;       
+ 237   1              MenuId=MOD_Y_CAL;
+ 238   1              ACalYId=0;
+C51 COMPILER V9.01   CMDSUB                                                                06/01/2018 17:39:14 PAGE 5   
+
+ 239   1              return TRUE;
+ 240   1      }
+ 241          //***********************************************************************/
+ 242          // *功    能：Y轴角度标定
+ 243          // *入    口：ang,角度值;adc,角度ADC值
+ 244          // *出    口：TRUE,保存成功;FALSE，失败
+ 245          // *备    注：当重新标定某个角度值时，原来的AD值将会被替换
+ 246          //***********************************************************************/
+ 247          int8u Adc_YCalProc (int32s ang,int32u adc)
+ 248          {
+ 249   1              if(MenuId!=MOD_Y_CAL)return FALSE;
+ 250   1              if((ACalYId>0)&&(TRUE==AngChkDiff(ang,adc,ACalYId,py_axis->angcal->angarr,py_axis->angcal->adcarr)))
+ 251   1                      return TRUE;                                            //替换成功
+ 252   1              if(ACalYId>=py_axis->angcal->calcnt) return FALSE;
+ 253   1              py_axis->angcal->angarr[ACalYId]=ang;    //写入新值
+ 254   1              py_axis->angcal->adcarr[ACalYId]=adc;
+ 255   1              ACalYId++;
+ 256   1              return TRUE;
+ 257   1      }
+ 258          //***********************************************************************/
+ 259          int8u Adc_YCalStop (void)
+ 260          {       
+ 261   1              int8u n=py_axis->angcal->calcnt-1;
+ 262   1              
+ 263   1              if(ACalYId<py_axis->angcal->calcnt)  return FALSE;
+ 264   1              if(MenuId!=MOD_Y_CAL)return FALSE;
+ 265   1              MenuId=MOD_MOD0;
+ 266   1              Sub_BufBubble(py_axis->angcal->angarr,py_axis->angcal->adcarr,py_axis->angcal->calcnt);//排序角度值和角度
+             -AD值
+ 267   1      //      py_axis->angcal->CalcPrm();    
+ 268   1              AngYCalcPrm();                             
+ 269   1              return TRUE;
+ 270   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1569    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     28      10
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4      56
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,439 @@
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE ANGAPP
+OBJECT MODULE PLACED IN .\obj\AngApp.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\AngApp.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.
+                    -\list\AngApp.lst) OBJECT(.\obj\AngApp.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  AngApp.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：   
+   6          * 日  期：   
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define   __ANGAPP_C__
+  18          #include "_Include.h"
+  19          
+  20          
+  21          static int32s xdata  angp;
+  22          static int32s xdata  angx_syszero;
+  23          static int32s xdata  angy_syszero;
+  24          static int32s xdata  angx_usrzero;
+  25          static int32s xdata  angy_usrzero;
+  26          static int32s xdata  angx_inst;     //安装角
+  27          static int32s xdata  angy_inst;     //安装角
+  28          static int32s xdata  angx_set;      //X轴报警角度
+  29          static int32s xdata  angy_set;
+  30          static int32s xdata  angp_set;
+  31          static int32s xdata  BufZerox_usr;
+  32          static int32s xdata  BufZeroy_usr;
+  33          static int32s xdata  BufZerox_sys;
+  34          static int32s xdata  BufZeroy_sys;
+  35          //***********************************************************************/
+  36          // *功    能：初始化
+  37          // *入    口：
+  38          // *出    口：
+  39          // *备    注：
+  40          // *函数性质：外部调用
+  41          //***********************************************************************/
+  42          void AngInit(void)
+  43          {
+  44   1          SnInit();                   //传感器模块初始化
+  45   1      
+  46   1          angp=0;                     //面角度
+  47   1       
+  48   1          SetAngXInst(0);
+  49   1          SetAngYInst(0);             //安裝角
+  50   1          SetAngXSysZero(0);
+  51   1          SetAngYSysZero(0);          //系統置0
+  52   1          SetAngXUsrZero(0);          //用戶置0
+  53   1          SetAngYUsrZero(0);
+  54   1          SetAngXSet(50000);           //報警角度
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 2   
+
+  55   1          SetAngYSet(50000);
+  56   1          SetAngPSet(50000);           //面報警角度
+  57   1                                      //
+  58   1          BufZerox_usr=0;             //用户置0后相对角度值
+  59   1          BufZeroy_usr=0;
+  60   1          BufZerox_sys=0;
+  61   1          BufZeroy_sys=0;
+  62   1      
+  63   1      }
+  64          //***********************************************************************/
+  65          // *功    能：面角度计算
+  66          // *入    口：x= X轴倾角值 y = y轴倾角值 p = 面角度存储地址
+  67          // *出    口：
+  68          // *备    注：
+  69          // *函数性质：
+  70          //***********************************************************************/
+  71          static  int32s  PAngCalc (int32s angx,int32s angy)
+  72          {
+  73   1          float xdata x,y,s;
+  74   1      
+  75   1          x  = angx;
+  76   1          x  = x / 1800000 * PI;
+  77   1          x  = sin(x);
+  78   1          x *= x;
+  79   1      
+  80   1          y  = angy;
+  81   1          y  = y / 1800000 * PI;
+  82   1          y  = sin(y);
+  83   1          y *= y;
+  84   1      
+  85   1          s  = sqrt(x+y);
+  86   1          if( s >= 0.5 )//面角度计算出错?
+  87   1          {
+  88   2              return 300000;
+  89   2          }
+  90   1          s = 1800000 * asin(s) / PI ;
+  91   1          return( (int32s)s );
+  92   1      }
+  93          //***********************************************************************/
+  94          // *功    能：
+  95          // *入    口：
+  96          // *出    口：
+  97          // *备    注：
+  98          // *函数性质：
+  99          //***********************************************************************/
+ 100          int32s GetAngP(void)
+ 101          {
+ 102   1      
+ 103   1              angp=PAngCalc(GetXAngAllSetVal(),GetYAngAllSetVal());
+ 104   1          return angp;    //获取面角度
+ 105   1      }
+ 106          
+ 107          int32s GetAngXSysZero(void)
+ 108          {
+ 109   1          return angx_syszero;    //获取X轴系统置零参数
+ 110   1      }
+ 111          int32s GetAngYSysZero(void)
+ 112          {
+ 113   1          return angy_syszero;    //获取Y轴系统置零参数
+ 114   1      }
+ 115          int32s GetAngXUsrZero(void)
+ 116          {
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 3   
+
+ 117   1          return angx_usrzero;    //获取X轴用户置零参数
+ 118   1      }
+ 119          int32s GetAngYUsrZero(void)
+ 120          {
+ 121   1          return angy_usrzero;    //获取Y轴用户置零参数
+ 122   1      }
+ 123          
+ 124          int32s GetAngXInst(void)
+ 125          {
+ 126   1          return angx_inst;    //获取X轴用户安装角参数
+ 127   1      }
+ 128          int32s GetAngYInst(void)
+ 129          {
+ 130   1          return angy_inst;    //获取Y轴用户安装角参数
+ 131   1      }
+ 132          
+ 133          int32s GetAngXSet(void)
+ 134          {
+ 135   1          return angx_set;    //获取X轴用户报警角参数
+ 136   1      }
+ 137          int32s GetAngYSet(void)
+ 138          {
+ 139   1          return angy_set;    //获取Y轴用户报警角参数
+ 140   1      }
+ 141          int32s GetAngPSet(void)
+ 142          {
+ 143   1          return angp_set;    //获取面角度用户报警角参数
+ 144   1      }
+ 145          #if MODBUS_CHECK_ENB==1
+ 146          int32s GetAngXZeroUsr(void)
+ 147          {
+ 148   1          return  BufZerox_usr; //获取X轴相对角度值用户       
+ 149   1      }
+ 150          int32s GetAngYZeroUsr(void)
+ 151          {
+ 152   1          return  BufZeroy_usr; //获取y轴相对角度值用户       
+ 153   1      }
+ 154          #endif
+ 155          int32s GetAngXRelSys(void)
+ 156          {
+ 157   1          return  BufZerox_sys; //获取X轴相对角度值内部       
+ 158   1      }
+ 159          int32s GetAngYRelSys(void)
+ 160          {
+ 161   1          return  BufZeroy_sys; //获取y轴相对角度值内部       
+ 162   1      }
+ 163          //***********************************************************************/
+ 164          // *功    能：
+ 165          // *入    口：
+ 166          // *出    口：
+ 167          // *备    注：
+ 168          // *函数性质：
+ 169          //***********************************************************************/
+ 170          void SetAngXSysZero(int32s zore)
+ 171          {
+ 172   1          angx_syszero=zore;    //设置X轴系统置零参数
+ 173   1      }
+ 174          void SetAngYSysZero(int32s zore)
+ 175          {
+ 176   1          angy_syszero=zore;    //设置Y轴系统置零参数
+ 177   1      }
+ 178          
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 4   
+
+ 179          void SetAngXUsrZero(int32s zore)
+ 180          {
+ 181   1          angx_usrzero=zore;    //设置X轴用户置零参数
+ 182   1      }
+ 183          void SetAngYUsrZero(int32s zore)
+ 184          {
+ 185   1          angy_usrzero=zore;    //设置Y轴用户置零参数
+ 186   1      }
+ 187          
+ 188          void SetAngXInst(int32s ang_inst)
+ 189          {
+ 190   1          angx_inst=ang_inst;    //设置X轴用户安装角参数
+ 191   1      }
+ 192          void SetAngYInst(int32s ang_inst)
+ 193          {
+ 194   1          angy_inst=ang_inst;    //设置Y轴用户安装角参数
+ 195   1      }
+ 196          
+ 197          void SetAngXSet(int32s ang_set)
+ 198          {
+ 199   1          angx_set=ang_set;    //设置X轴用户报警角参数
+ 200   1      }
+ 201          void SetAngYSet(int32s ang_set)
+ 202          {
+ 203   1          angy_set=ang_set;    //设置Y轴用户报警角参数
+ 204   1      }
+ 205          void SetAngPSet(int32s ang_set)
+ 206          {
+ 207   1          angp_set=ang_set;    //设置面角度用户报警角参数
+ 208   1      }
+ 209          
+ 210          
+ 211          //***********************************************************************/
+ 212          // *功    能：设置角度值0位置
+ 213          // *入    口：
+ 214          // *出    口：
+ 215          // *备    注：
+ 216          // *函数性质：
+ 217          //***********************************************************************/
+ 218          void SetAngZero (int32s *angval ,int32s setval)
+ 219          {
+ 220   1          *angval=*angval-setval;
+ 221   1      }
+ 222          
+ 223          void SetAngZeroAdd (int32s *angval ,int32s setval)
+ 224          {
+ 225   1          *angval=*angval+setval;
+ 226   1      }
+ 227          //***********************************************************************/
+ 228          // *功    能：
+ 229          // *入    口：
+ 230          // *出    口：
+ 231          // *备    注：
+ 232          // *函数性质：
+ 233          //***********************************************************************/
+ 234          int32s GetXAngAllSetVal(void)
+ 235          {
+ 236   1          int32s xdata tmp;
+ 237   1          tmp=GetXAng();                    //获取X轴的原始角度值
+ 238   1          SetAngZero(&tmp,angx_syszero);    //系统置0
+ 239   1          BufZerox_sys=tmp;                 //系统置0后相对角度值
+ 240   1          SetAngZero(&tmp,angx_usrzero);    //用户置0
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 5   
+
+ 241   1          BufZerox_usr=tmp;                 //用户置0后相对角度值
+ 242   1          SetAngZeroAdd(&tmp,angx_inst);    //安装角
+ 243   1      //      tmp = -14352;    
+ 244   1          return tmp;
+ 245   1      
+ 246   1      
+ 247   1      }
+ 248          //***********************************************************************/
+ 249          // *功    能：
+ 250          // *入    口：
+ 251          // *出    口：
+ 252          // *备    注：
+ 253          // *函数性质：
+ 254          //***********************************************************************/
+ 255          int32s GetYAngAllSetVal(void)
+ 256          {
+ 257   1          int32s xdata tmp;
+ 258   1          tmp=GetYAng();                    //获取X轴的原始角度值
+ 259   1          SetAngZero(&tmp,angy_syszero);    //系统置0
+ 260   1          BufZeroy_sys=tmp;                 //系统置0后相对角度值
+ 261   1          SetAngZero(&tmp,angy_usrzero);    //用户置0
+ 262   1          BufZeroy_usr=tmp;                 //用户置0后相对角度值
+ 263   1          SetAngZeroAdd(&tmp,angy_inst);    //安装角
+ 264   1          return tmp;
+ 265   1      }
+ 266          //***********************************************************************/
+ 267          // *功    能：
+ 268          // *入    口：
+ 269          // *出    口：
+ 270          // *备    注：
+ 271          // *函数性质： 角度报警函数
+ 272          //***********************************************************************/
+ 273          #if     Alarm_X_Enb == 1
+              void  AlarmX( int8u vol )
+              {
+                  if( AlarmHighLow == 'H' )
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_X_ON() ;
+                      }
+                      else
+                      {
+                          LED_X_OFF() ;
+                      }
+                  }
+                  else
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_X_OFF() ;
+                      }
+                      else
+                      {
+                          LED_X_ON() ;
+                      }
+                  }
+              }
+              #endif
+ 300          //***********************************************************************/
+ 301          #if     Alarm_Y_Enb == 1
+              void  AlarmY( int8u vol )
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 6   
+
+              {
+                  if( AlarmHighLow == 'H' )
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_Y_ON() ;
+                      }
+                      else
+                      {
+                          LED_Y_OFF() ;
+                      }
+                  }
+                  else
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_Y_OFF() ;
+                      }
+                      else
+                      {
+                          LED_Y_ON() ;
+                      }
+                  }
+              }
+              #endif
+ 328          //***********************************************************************/
+ 329          #if     Alarm_P_Enb == 1
+              void  AlarmS( int8u vol )
+              {
+                  if( AlarmHighLow == 'H' )
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_S_ON() ;
+                      }
+                      else
+                      {
+                          LED_S_OFF() ;
+                      }
+                  }
+                  else
+                  {
+                      if( vol == 'H' )
+                      {
+                          LED_S_OFF() ;
+                      }
+                      else
+                      {
+                          LED_S_ON() ;
+                      }
+                  }
+              }
+              #endif
+ 356          //***********************************************************************/
+ 357          #if 0
+              void  AngProc(void)
+              {
+              #if     Alarm_X_Enb == 1
+                  int32s  data_x;
+              #endif
+              #if     Alarm_Y_Enb == 1
+                      int32s  data_y;
+C51 COMPILER V9.01   ANGAPP                                                                06/01/2018 17:39:14 PAGE 7   
+
+              #endif
+              #if     Alarm_X_Enb == 1
+                  data_x = GetXAngAllSetVal();
+                  if( ( data_x > ( angx_set+AngAlarmOffset ) ) || ( data_x < -( angx_set+AngAlarmOffset ) ) )
+                  {
+                      AlarmX('H') ;
+                  }
+                  else if( ( data_x < ( angx_set-AngAlarmOffset ) ) && ( data_x > -( angx_set-AngAlarmOffset ) ) )
+                  {
+                      AlarmX('L') ;
+                  }
+              #endif
+              #if     Alarm_Y_Enb == 1
+                  data_y = GetYAngAllSetVal();
+                  if( ( data_y > ( angy_set+AngAlarmOffset ) ) || ( data_y < -( angy_set+AngAlarmOffset ) ) )
+                  {
+                      AlarmY('H') ;
+                  }
+                  else if( ( data_y < ( angy_set-AngAlarmOffset ) ) && ( data_y > -( angy_set-AngAlarmOffset ) ) )
+                  {
+                      AlarmY('L') ;
+                  }
+              #endif
+              #if     Alarm_P_Enb == 1
+                  angp = PAngCalc(GetXAngAllSetVal(),GetYAngAllSetVal());
+                  if( angp > ( angp_set+AngAlarmOffset ) )
+                  {
+                      AlarmS('H') ;
+                  }
+                  else if( angp < ( angp_set-AngAlarmOffset ) )
+                  {
+                      AlarmS('L') ;
+                  }
+              #endif
+              }
+              #endif
+ 401          //***********************************************************************/
+ 402          //        E N D
+ 403          //***********************************************************************/
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    815    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     56      20
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      16
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

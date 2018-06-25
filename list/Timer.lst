@@ -1,0 +1,180 @@
+C51 COMPILER V9.01   TIMER                                                                 06/01/2018 17:39:16 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE TIMER
+OBJECT MODULE PLACED IN .\obj\Timer.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Timer.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\
+                    -list\Timer.lst) OBJECT(.\obj\Timer.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  Time.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：  
+   6          * 日  期：  
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define   __TIMER_C__
+  18          #include "_Include.h"
+  19          
+  20          static xdata int8u count;
+  21          static xdata int8u count_in;
+  22          int16u xdata sum_temp;
+  23          int8u  xdata vas;
+  24          
+  25          
+  26          
+  27          //***********************************************************************/
+  28          // *功    能：
+  29          // *入    口：
+  30          // *出    口：
+  31          // *备    注：
+  32          // *函数性质：
+  33          //***********************************************************************/
+  34          void Timer2_Init (void)
+  35          {       
+  36   1              int8u SfrPage_ = SFRPAGE;
+  37   1              SFRPAGE = ACTIVE_PAGE;  
+  38   1              TMR2CN  = 0x00;                                                 // Stop Timer2; Clear TF2;      
+  39   1              CKCON  |= 0x10;                                                 // Select SYSCLK for timer 2 source             0x30
+  40   1              TMR2RL  = -(SYSCLK/1000);                               // Init reload value for 1ms                    65536-(SYSCLK/10000)--100us
+  41   1              TMR2    = 0xFFFF;                                               // Set to reload immediately
+  42   1              IP |= 0x40;
+  43   1              ET2             = 1;                                                    // Enable Timer2 interrupts
+  44   1              TR2             = 1;                                                    // Start Timer2
+  45   1              SFRPAGE = SfrPage_;
+  46   1              MainTime4Cnt=SendSpeed[SendSpeedNum];
+  47   1      }       
+  48          
+  49          
+  50          #if TIMER3_ENABLE
+              void Timer3_Init (void)
+              {       
+                      int8u SfrPage_ = SFRPAGE;
+                      SFRPAGE = ACTIVE_PAGE;  
+C51 COMPILER V9.01   TIMER                                                                 06/01/2018 17:39:16 PAGE 2   
+
+                      TMR3CN  = 0x00;                                                 // Stop Timer3; Clear TF3;      
+                      CKCON  |= 0x40;                                                 // Select SYSCLK for timer 3 source             
+                      TMR3RLL = 0x36;                                                 // 50KHz
+                      TMR3RLH = 0xF8;//0xE8;
+                  TMR3H = 0xFF;
+                  TMR3L = 0xFF;                                               
+                      EIE1   |= 0x40;                                                 // Enable Timer3 interrupts
+                      TMR3CN |= 0x04;                                                 // Start Timer3
+                      SFRPAGE = SfrPage_;
+              }
+              
+              void Timer3_ISR (void) interrupt INTERRUPT_TIMER3
+              {                      
+                  TMR3CN &= ~0x80;                            
+                  AD7176_RdRegData(0x04,4);
+              //      Comm_TimerProc();    
+              }
+              #endif
+  73          
+  74          
+  75          /***********************************************************************/
+  76          // *功能：
+  77          // *入口：主动发送时间周期，轮询COMM的时间周期
+  78          // *出口：
+  79          // *备注：
+  80          // *函数性质：
+  81          /***********************************************************************/
+  82          #if 1
+  83          void Timer2_ISR (void) interrupt 5
+  84          {
+  85   1              TF2H = 0;                                                               // Clear Timer2 interrupt flag
+  86   1              Timer2_TaskInIsr();
+  87   1              if(++count>=200)
+  88   1              {
+  89   2                      vas=SensorSPI_Write(0x08);
+  90   2                      sum_temp+=vas;
+  91   2                      count=0;
+  92   2                      if(++count_in>=10)
+  93   2                      {
+  94   3                              temp_adc.ftval=sum_temp/10;
+  95   3                              count_in=0;
+  96   3                              sum_temp=0;
+  97   3                      }
+  98   2              }
+  99   1              if(++coun==2300)
+ 100   1              {
+ 101   2                      waiting=1;
+ 102   2              }
+ 103   1      }
+ 104          
+ 105          /***********************************************************************/
+ 106          
+ 107          #define MAIN_TIME1_INIT (1000/100)
+ 108          #define MAIN_TIME2_INIT (1000/8)
+ 109          #define MAIN_TIME3_INIT (1000/2)
+ 110          #define MAIN_TIME4_INIT (1000/1)
+ 111          
+ 112          static   int8u MainTime4En  = OFF;
+ 113          
+ 114          /***********************************************************************/
+ 115          // *功能：定时器2 控制主动发送模式的频率和时间周期
+ 116          // *入口：
+C51 COMPILER V9.01   TIMER                                                                 06/01/2018 17:39:16 PAGE 3   
+
+ 117          // *出口：
+ 118          // *备注：
+ 119          // *函数性质：
+ 120          /***********************************************************************/
+ 121          
+ 122          void Timer2_TaskInIsr (void)
+ 123          {                               
+ 124   1              Comm_TimerProc();                                               // CommTimer=10 轮询COMM的时间周期
+ 125   1              MainTime4Cnt--;                                                 //发送时间周期
+ 126   1              if(MainTime4Cnt==0)
+ 127   1              {
+ 128   2                      MainTime4Cnt=SendSpeed[SendSpeedNum];  //发送时间周期
+ 129   2                      MainTime4En=ON;                                            //发送使能
+ 130   2                      /****** 主动发送频率bps设置***********/
+ 131   2              }
+ 132   1      }
+ 133          /***********************************************************************/
+ 134          // *功能：主动发送模式 发送XY的角度
+ 135          // *入口：MainTime4En SendActPosi
+ 136          // *出口：
+ 137          // *备注：
+ 138          // *函数性质：
+ 139          /***********************************************************************/
+ 140          void Timer2_TaskInMain (void)
+ 141          {
+ 142   1              if(MainTime4En==ON)
+ 143   1              {       
+ 144   2                      MainTime4En=OFF;        
+ 145   2                      if(SendActPosi==0)
+ 146   2                      Sub_SendAngXY();                                   //主动发送模式 发送XY的角度
+ 147   2                      /******主动发送***********/
+ 148   2              }
+ 149   1      }
+ 150          #endif
+ 151          
+ 152          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    294    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      7    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

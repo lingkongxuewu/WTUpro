@@ -1,0 +1,398 @@
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE AD7176
+OBJECT MODULE PLACED IN .\obj\AD7176.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\AD7176.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.
+                    -\list\AD7176.lst) OBJECT(.\obj\AD7176.obj)
+
+line level    source
+
+   1          
+   2          #define  __AD7176_C__
+   3          #include "_Include.h"
+   4          
+   5          volatile int32u xdata sample;
+   6          
+   7          int16u xdata WordLen;
+   8          int16u xdata WrRegVal;
+   9          
+  10          Sam_AD xdata q1;
+  11          Sam_AD xdata q2;
+  12          
+  13          void Init_Samad(void)
+  14          {       
+  15   1              q1.sum = q1.cnt = 0;
+  16   1              q2.sum = q2.cnt = 0;
+  17   1      }
+  18          
+  19          
+  20          //***********************************************************************/
+  21          // *功    能：获取X轴ADC值        
+  22          // *入    口：
+  23          // *出    口：X轴ADC值（窗口滤波后）
+  24          // *备    注：
+  25          // *函数性质：
+  26          //***********************************************************************/
+  27          int32u Adc_GetXVal(void)
+  28          {
+  29   1          return  (x_axis_adc.ftval);
+  30   1      }
+  31          //***********************************************************************/
+  32          // *功    能：获取Y轴ADC值
+  33          // *入    口：
+  34          // *出    口：Y轴ADC值（窗口滤波后）
+  35          // *备    注：
+  36          // *函数性质：
+  37          //***********************************************************************/
+  38          int32u Adc_GetYVal(void)
+  39          {
+  40   1          return  (y_axis_adc.ftval);
+  41   1      }
+  42          
+  43          
+  44          //***********************************************************************/
+  45          // *功    能：复位AD7176-2
+  46          // *入    口：
+  47          // *出    口：
+  48          // *备    注：
+  49          // *函数性质：
+  50          //***********************************************************************/
+  51          void AD7176_Reset(void)
+  52          {
+  53   1              int8u xdata Regarr[] ={0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+  54   1              NSSMD0 = 0;                             //the value of NSS is controlled by SPI0CN.2
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 2   
+
+  55   1              SPI_Write(Regarr,8);
+  56   1              NSSMD0 = 0;
+  57   1      }
+  58          
+  59          
+  60          //***********************************************************************/
+  61          // *功    能：初始化AD7176-2，写入寄存器缺省值
+  62          // *入    口：
+  63          // *出    口：
+  64          // *备    注：
+  65          // *函数性质：
+  66          //***********************************************************************/
+  67          void AD7176_Init(void)
+  68          {
+  69   1              
+  70   1              AD7176_Reset();
+  71   1              /* Allow at least 500 us before accessing any of the on-chip registers. */
+  72   1          delay500us();
+  73   1                      
+  74   1              AD7176_OffsetConfig (REG_OFFSET0, 0x7FFF86);     //0x30
+  75   1              
+  76   1      //      AD7176_INTModeConfig (ALTSYNC_DIS, IOSTRENGTH_DIS, DOUT_RESET_DIS, CONTREAD_EN, DATA_STAT_EN, REG_CHECK
+             -_DIS, CRC_DIS, WL24);   //0x02--0x0040
+  77   1              AD7176_ADCModeConfig(REF_EN, SING_CYC_DIS, DELAY_0US, MODE_CONT_CONV, CLOCKSEL_INTOS);   //0x01--0x8000
+  78   1              AD7176_GainConfig (REG_GAIN0, 0x5556A0);                //0x38
+  79   1      
+  80   1      
+  81   1              AD7176_ChannelConfig (REG_CHMAP0, CH_EN, SETUP0_SEL, AINPOS_AIN0, AINNEG_AIN1);    //0x10--0x8001
+  82   1      //      AD7176_ChannelConfig (REG_CHMAP1, CH_EN, SETUP0_SEL, AINPOS_AIN2, AINNEG_AIN3);    //0x11--0x8043
+  83   1              AD7176_ChannelConfig (REG_CHMAP1, CH_EN, SETUP0_SEL, AINPOS_AIN3, AINNEG_AIN2);
+  84   1              AD7176_SetUpConfig (REG_SETUPCON0, BI_POLAR0, REF_SEL0_EXT);                            //0x20--0x1000
+  85   1              AD7176_FilterConfig (REG_FILTCON0, SINC3MAP0_DIS, ENHFILT0_EN, ENFILT0_27SPS, ORDER0_SINC5_SINC1, ODR0_62
+             -500SPS);   //0x28--0x0A00
+  86   1              AD7176_INTModeConfig (ALTSYNC_DIS, IOSTRENGTH_DIS, DOUT_RESET_DIS, CONTREAD_EN, DATA_STAT_EN, REG_CHECK_D
+             -IS, CRC_DIS, WL24);     //0x02--0x0040
+  87   1      
+  88   1      
+  89   1              AdcEntityInit();
+  90   1      
+  91   1              Init_Samad();
+  92   1              
+  93   1      }
+  94          
+  95          void AD7176_WrRegVal(int8u RegAdd, int32u RegVal, int8u NumOfBytes)
+  96          {
+  97   1              int8u  mid_arr[5]={0};                                                                             
+  98   1              int8u  i;
+  99   1              int32u temp;
+ 100   1      
+ 101   1              mid_arr[0] = RegAdd;
+ 102   1              
+ 103   1              NSSMD0 = 0;                             //Activate Slave Select
+ 104   1              SPI_Write(mid_arr,1);   //Write at communication Register
+ 105   1      
+ 106   1              
+ 107   1              temp=RegVal;                                    
+ 108   1              for(i=1;i<=NumOfBytes;i++)
+ 109   1              {
+ 110   2                      mid_arr[i]=(int8u)(temp>>(8*(NumOfBytes-i)));
+ 111   2              }
+ 112   1              SPI_Write(&mid_arr[1],NumOfBytes);
+ 113   1              
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 3   
+
+ 114   1      
+ 115   1          NSSMD0 = 0;
+ 116   1      //      NSSMD0 = 1;                     //Deactivate Slave Select
+ 117   1      }
+ 118          
+ 119          void AD7176_ADCModeConfig(int16u RefEn,int16u SingCycEn,int16u Delay, int16u OpMode,int16u ClockSel)
+ 120          {
+ 121   1              WrRegVal = RefEn + SingCycEn + Delay + OpMode + ClockSel;
+ 122   1              AD7176_WrRegVal(REG_ADCMODE,WrRegVal,2);
+ 123   1      }
+ 124          
+ 125          void AD7176_INTModeConfig(int16u AltSyncEn, int16u IostrengthEn,int16u DoutReset, 
+ 126                                                                                                   int16u ContReadEn, int16u DataStat, int16u RegCheckEn,
+ 127                                                                                                   int16u CrcEn,int16u WordLen)
+ 128          {
+ 129   1              WrRegVal = AltSyncEn + IostrengthEn + DoutReset + ContReadEn + DataStat + RegCheckEn + CrcEn + WordLen;
+ 130   1              
+ 131   1              WordLen=WL16;   //
+ 132   1              AD7176_WrRegVal(REG_IFMODE,WrRegVal,2);
+ 133   1      }
+ 134          
+ 135          void AD7176_ChannelConfig(int8u RegChanSel,int16u ChanEn,int16u SetupSelNumber, int16u AinPos, int16u AinN
+             -eg)
+ 136          {
+ 137   1              WrRegVal = ChanEn|SetupSelNumber|AinPos|AinNeg;
+ 138   1              AD7176_WrRegVal (RegChanSel, WrRegVal, 2);
+ 139   1                      
+ 140   1      }
+ 141          
+ 142          void AD7176_SetUpConfig(int8u RegSetupConfigNumber, int16u BiUniPolar, int16u RefSel)
+ 143          {
+ 144   1              WrRegVal = BiUniPolar + RefSel;
+ 145   1              AD7176_WrRegVal(RegSetupConfigNumber, WrRegVal, 2);
+ 146   1      }
+ 147          
+ 148          void AD7176_FilterConfig(int8u RefFilConfigNumber,int16u Sinc3Map, int16u EnFiltEn, int16u EnFilSel,int16u
+             - Order, int16u outputdatarate)
+ 149          {
+ 150   1              WrRegVal = Sinc3Map + EnFiltEn + EnFilSel + Order + outputdatarate;
+ 151   1              AD7176_WrRegVal(RefFilConfigNumber, WrRegVal, 2);
+ 152   1      }
+ 153          
+ 154          void AD7176_OffsetConfig(int8u RegOffsetSel,int32u OffestVal)
+ 155          {
+ 156   1              AD7176_WrRegVal(RegOffsetSel, OffestVal, 3);
+ 157   1      }
+ 158          
+ 159          void AD7176_GainConfig(int8u RegGainSel,int32u GainVal)
+ 160          {
+ 161   1              AD7176_WrRegVal(RegGainSel, GainVal, 3);
+ 162   1      }
+ 163          
+ 164          
+ 165          //Used to read Data from any registers. Requires Register Address and Expected number of Bytes
+ 166          
+ 167          //void AD7176_RdRegData(int8u RegAdd,int8u NumOfBytes)
+ 168          //{
+ 169          //      
+ 170          //      NSSMD0 = 0;                                                     //Activate slave select
+ 171          //      AD_Data[0] = RegAdd|0x40;
+ 172          //      SPI_Write_INT(AD_Data,1);                               //Write at communication register.
+ 173          //
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 4   
+
+ 174          //      SPI_Read(&AD_Data[1],NumOfBytes);
+ 175          //      #if AD_DEBUG
+ 176          //      Debug_Displayad(RegAdd,NumOfBytes);
+ 177          //      #endif
+ 178          //
+ 179          //      sample = AD_Data[1] << 1;
+ 180          //      sample = (sample << 9)|(AD_Data[2]<<2)|(AD_Data[3]>>6);                   //18位        
+ 181          //
+ 182          //      state = 1;
+ 183          //      NSSMD0 = 0;     
+ 184          //}
+ 185          
+ 186          //#if 0
+ 187          //int32u Get_XSample()
+ 188          //{
+ 189          //      if((AD_Data[4]&0x03)==0)
+ 190          //      return  sample;
+ 191          //      else
+ 192          //      return 0;
+ 193          //}
+ 194          //
+ 195          //int32u Get_YSample()
+ 196          //{
+ 197          //      if((AD_Data[4]&0x03)==1)
+ 198          //      return  sample;
+ 199          //      else
+ 200          //      return 0;
+ 201          //}
+ 202          //#endif
+ 203          
+ 204          //***********************************************************************/
+ 205          // *功    能：ADC值滤波
+ 206          // *入    口：p_adc,ADC结构体指针（X,Y,Temp);val,新值
+ 207          // *出    口：
+ 208          // *备    注：为了提高响应速度，进行限幅滤波   ADC值底层滤波供X/Y/T的函数调用
+ 209          // *函数性质：
+ 210          //***********************************************************************/
+ 211          void AdcFilter (struct adc_entity *p_adc, int32u val)
+ 212          {
+ 213   1          if(ValInRange(p_adc->ftval,val,(int32u)FILTER_NUM1))                     //限幅滤波
+ 214   1          {
+ 215   2              p_adc->ftval=SlideWinFilter (&(p_adc->arrpt),&(p_adc->arrcnt),
+ 216   2                                           p_adc->valarr,val,(int16u)FILTER_NUM); //窗口滤波
+ 217   2          }
+ 218   1          else //if(ValOutRange(p_adc->ftval,val,(int32u)FILTER_OUT))
+ 219   1          {
+ 220   2              p_adc->ftval=val;                                               //幅度变化大，直接使用当前值
+ 221   2              p_adc->arrcnt=0;                                                //重新写数组
+ 222   2          }
+ 223   1                                                                                                                                                          
+ 224   1      }
+ 225          
+ 226          int8u Adc_GetTemp(void)
+ 227          {
+ 228   1          return temp_adc.ftval;              //sensor temperature
+ 229   1      }
+ 230          
+ 231          void AdcEntityInit(void)
+ 232          {
+ 233   1          //---------X轴
+ 234   1          x_axis_adc.num=0;                 //ADC虚拟端口号
+ 235   1          x_axis_adc.arrpt=0;               //ADC缓存数组位置指针
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 5   
+
+ 236   1          x_axis_adc.arrcnt=0;              //元素个数为0
+ 237   1          x_axis_adc.ftval=0;               //ADC滤波之后的值
+ 238   1          x_axis_adc.next=&y_axis_adc;      //ADC结构体链表初始化
+ 239   1          //---------Y轴
+ 240   1          y_axis_adc.num=1;
+ 241   1          y_axis_adc.arrpt=0;
+ 242   1          y_axis_adc.arrcnt=0;              //元素个数为0
+ 243   1          y_axis_adc.ftval=0;
+ 244   1          y_axis_adc.next=&temp_adc;
+ 245   1          //------------温度
+ 246   1          temp_adc.num=2;
+ 247   1          temp_adc.arrpt=0;
+ 248   1          temp_adc.arrcnt=0;                //元素个数为0
+ 249   1          temp_adc.ftval=0;
+ 250   1          temp_adc.next=(struct adc_entity *)0;  //链表结束
+ 251   1      }
+ 252          
+ 253          //***********************************************************************/
+ 254          void AD7176_InMainProc(void)
+ 255          {
+ 256   1              struct adc_entity *adc_ent;
+ 257   1              adc_ent=&x_axis_adc; 
+ 258   1                       
+ 259   1              if(state != 1) 
+ 260   1              return;
+ 261   1      
+ 262   1              Adc_Flag = AD_Data[4]&0x03;
+ 263   1              if(Adc_Flag==1)                         
+ 264   1              {
+ 265   2                      q1.sum+=sample;
+ 266   2                      while(++q1.cnt==SUM_CNT)
+ 267   2                      {
+ 268   3                              AdcFilter(adc_ent,q1.sum/SUM_CNT);
+ 269   3                              q1.sum=0;
+ 270   3                              q1.cnt=0;
+ 271   3                      }
+ 272   2              }
+ 273   1              else if(Adc_Flag==0)
+ 274   1              {
+ 275   2                      q2.sum+=sample;
+ 276   2                      while(++q2.cnt==SUM_CNT)
+ 277   2                      {
+ 278   3                              AdcFilter(adc_ent->next,q2.sum/SUM_CNT);
+ 279   3                              q2.sum=0;
+ 280   3                              q2.cnt=0;
+ 281   3                      }
+ 282   2              }
+ 283   1              else
+ 284   1                      return;
+ 285   1              
+ 286   1              state = 0;
+ 287   1              AdcEndTag = 1;
+ 288   1      }
+ 289          
+ 290          
+ 291          
+ 292          void AD7176_IntProc(void)
+ 293          {
+ 294   1      
+ 295   1              SPI_Read(&AD_Data[1],4);
+ 296   1      
+ 297   1              sample = AD_Data[1] << 1;
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 6   
+
+ 298   1              sample = (sample << 9)|(AD_Data[2]<<2)|(AD_Data[3]>>6);
+ 299   1              state = 1;
+ 300   1      }
+ 301          
+ 302          
+ 303          //#if 0
+ 304          //int8u CrcPolynomial(int32u Data, int8u Command, int8u NoOfBytes)
+ 305          //{
+ 306          //      int32u remainder;   
+ 307          //    int32u polynomial=0x107;
+ 308          //      int32u polynomialShift;
+ 309          //      int32u AD7176Data;
+ 310          //      int32u dummyData = 0x80000000;
+ 311          //      
+ 312          //      int8u bit_num=31;
+ 313          //      int8u checksum;
+ 314          //      
+ 315          //      AD7176Data = Command;
+ 316          //      AD7176Data <<= 8*NoOfBytes;
+ 317          //      AD7176Data |=Data;
+ 318          //      
+ 319          //  remainder  = (AD7176Data & 0XFFFFFF00);
+ 320          //      
+ 321          //      while (remainder > 0xFF)
+ 322          //      {
+ 323          //              while ((remainder & dummyData) == 0)
+ 324          //              {
+ 325          //                      bit_num = bit_num - 1;
+ 326          //                      dummyData = dummyData >> 1;
+ 327          //              }
+ 328          //              polynomialShift = polynomial << (bit_num - 8);
+ 329          //              remainder ^= polynomialShift;
+ 330          //      }       
+ 331          //              checksum = remainder;
+ 332          //              
+ 333          //              return checksum;
+ 334          //}
+ 335          //
+ 336          //int8u CrcXor(int32u Data, int8u Command, int8u NoOfBytes)
+ 337          //{
+ 338          //      int8u Bytes = 0x00;
+ 339          //      int8u XorResult = 0X00;
+ 340          //      int8u SampleData = 0x00;
+ 341          //              XorResult = Command;
+ 342          //      for(Bytes = (NoOfBytes); Bytes > 1; Bytes--)
+ 343          //      {
+ 344          //              SampleData = (int8u)(Data>>(8*(Bytes-1)));
+ 345          //              XorResult = XorResult^SampleData;
+ 346          //      }
+ 347          //
+ 348          //      return XorResult;
+ 349          //}
+ 350          //#endif
+ 351          
+ 352          
+ 353          
+ 354          
+ 355          
+ 356          
+ 357          
+
+
+C51 COMPILER V9.01   AD7176                                                                06/01/2018 17:39:13 PAGE 7   
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1311    ----
+   CONSTANT SIZE    =     13    ----
+   XDATA SIZE       =    485       8
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      81
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

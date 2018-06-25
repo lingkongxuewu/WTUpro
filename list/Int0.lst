@@ -1,0 +1,86 @@
+C51 COMPILER V9.01   INT0                                                                  06/01/2018 17:39:16 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE INT0
+OBJECT MODULE PLACED IN .\obj\Int0.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Int0.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\l
+                    -ist\Int0.lst) OBJECT(.\obj\Int0.obj)
+
+line level    source
+
+   1          
+   2          
+   3          
+   4          /***********************************************************************/
+   5          #define         __INT0_C__
+   6          #include "_Include.h"
+   7          
+   8          
+   9          /*************************************************************************************************/
+  10           #if 1
+  11          int8u a[1] = {0X44};
+  12          int8u tem = 0;
+  13           
+  14          void Int0_Enable(void)                                  //INT0 input is active low
+  15          {
+  16   1              IE0     = 0;                                            //clear int0 interrupt flag
+  17   1          EX0 = 1;                                            //enable INT0
+  18   1      }
+  19          
+  20          /*************************************************************************************************
+  21          * 函数名：
+  22          * 功能：        初始化INT0中断
+  23          * 入口：
+  24          * 出口：
+  25          * 备注：
+  26          * 函数性质：
+  27          *************************************************************************************************/
+  28          
+  29          void Int0_Init(void)                                    
+  30          {
+  31   1              int8u   page_temp;
+  32   1              page_temp = SFRPAGE;
+  33   1              SFRPAGE   = CONFIG_PAGE;
+  34   1          IT0 = 1;                                            //INT0 is edge triggered
+  35   1              IT01CF &= ~0x0E;
+  36   1              IT01CF |= 0x01;
+  37   1          SFRPAGE   = page_temp;
+  38   1              Int0_Enable();
+  39   1      }
+  40          
+  41          /*************************************************************************************************/
+  42          void Int0_Disable(void)                                 //INT0 input is active low
+  43          {
+  44   1          EX0 = 0;                                                    //disable INT0
+  45   1      }
+  46          
+  47          /*************************************************************************************************/
+  48          
+  49          void Int0_ISR (void) interrupt INTERRUPT_INT0
+  50          {
+  51   1              IE0     = 0;
+  52   1              Int0_Disable();                                         
+  53   1              AD7176_IntProc();
+  54   1              Int0_Enable();
+C51 COMPILER V9.01   INT0                                                                  06/01/2018 17:39:16 PAGE 2   
+
+  55   1      //      NSSMD0 = 0;
+  56   1      }
+  57          #endif
+  58          
+  59          
+  60          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     93    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

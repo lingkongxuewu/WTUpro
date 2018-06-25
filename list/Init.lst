@@ -1,0 +1,120 @@
+C51 COMPILER V9.01   INIT                                                                  06/01/2018 17:39:15 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE INIT
+OBJECT MODULE PLACED IN .\obj\Init.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE src\Init.c OPTIMIZE(SIZE) BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\l
+                    -ist\Init.lst) OBJECT(.\obj\Init.obj)
+
+line level    source
+
+   1          /*--------------------------------文*件*信*息-----------------------------
+   2          * 文件名：  Init.c
+   3          * 版　本：  v1.0
+   4          * 描  述：  100T双轴 整合后的版本
+   5          * 创建人：   
+   6          * 日  期：   
+   7          --------------------------------------------------------------------------
+   8          *当前版本:      v1.0
+   9          *修 改 人:
+  10          *日　  期:
+  11          ----------------------------------修改履历--------------------------------
+  12          1、
+  13          2、
+  14          3、
+  15          4、
+  16          ------------------------------------------------------------------------*/
+  17          #define   __INIT_C__
+  18          #include  "_Include.h"
+  19          
+  20          void Init_SystemPara (void)
+  21          {
+  22   1              SendActPosi=1;
+  23   1              SendSpeedNum=1;                                         //????????????????????????
+  24   1          MainTime4Cnt = SendSpeed[SendSpeedNum];     
+  25   1      
+  26   1              TempA=2500;
+  27   1              Braud_Num=3;
+  28   1              Addr=1;
+  29   1              AngRange=30;
+  30   1      
+  31   1      }
+  32          
+  33          static void Sys_ClkInit (void)
+  34          {       
+  35   1              int8u SfrPage_ = SFRPAGE;
+  36   1              SFRPAGE = CONFIG_PAGE;
+  37   1              OSCICN = 0xD7;//0xD5;           //6M                                      
+  38   1      
+  39   1              CLKSEL = 0X00;                          //      选择内部振荡器作为系统时钟
+  40   1              while((OSCICN & BIT4) == 0);//  等待时钟稳定
+  41   1              VDM0CN = 0xA0;                          //      Enable VDD monitor and high threshold
+  42   1              RSTSRC = 0x02;                          //      Enable VDD monitor as a reset source
+  43   1      
+  44   1              SFRPAGE = SfrPage_;
+  45   1      }
+  46          //***********************************************************************/
+  47          // *功    能： 初始化I/O口操作
+  48          // *入    口： 无
+  49          // *出    口：无
+  50          // *备    注：
+  51          // *函数性质：
+  52          //*说明：I/O口设置为模拟时，PXMIN相应位设置为0，I/O口设置为数字时，PXMIN相应为设置为1（默认状态为1）
+  53          //*              I/O口设置为输出时，PXMDOUT相应位设置为1，I/O口为输入PXMDOUT相应位设置为0（默认状态为0）
+  54          //*              I/O口设置为模拟，通用I/O口时以及特殊功能时PXSKIP相应为设置为1（默认状态为0）
+C51 COMPILER V9.01   INIT                                                                  06/01/2018 17:39:15 PAGE 2   
+
+  55          //***********************************************************************/
+  56          void PortInit(void)
+  57          {
+  58   1              int8u SfrPage = SFRPAGE;
+  59   1              SFRPAGE = CONFIG_PAGE;
+  60   1              
+  61   1              P0SKIP  |= 0x0F;        //skip P0.0 P0.1 p0.2 p0.3 
+  62   1              P0MDIN  &= ~0x01;   //set P0.0 analog input(VREF)
+  63   1              P0MDOUT |= 0x50;    //set P0.4 P0.6 push-pull
+  64   1              P1MDOUT |= 0x2D;    //set P1.0 P1.2 P1.3 P1.5 push-pull
+  65   1              P1SKIP  |= 0x10;        //skip P1.4
+  66   1              P2MDOUT |= 0x0B;    //for sensor spi
+  67   1              XBR0 = 0x07;            //enable SPI I/O,CAN I/O,UART I/O
+  68   1              //XBR1 = 0x02 ;         //SYSCLK output
+  69   1              XBR2 = 0x40;            //enable crossbar
+  70   1              SFRPAGE = SfrPage;
+  71   1      }
+  72          
+  73          
+  74          void Init_All (void)
+  75          {
+  76   1              PortInit();                     // Initialize Port I/O
+  77   1              Sys_ClkInit();                  // Initialize Oscillator 
+  78   1              Comm_HardwareInit();
+  79   1              Comm_SoftwareInit();
+  80   1              Timer2_Init();
+  81   1              Init_SystemPara();
+  82   1              SPI_init();
+  83   1              CalibMtInit();
+  84   1              AD7176_Init();
+  85   1      #ifndef TIMER3_ENABLE
+                      Timer3_Init();
+              #endif
+  88   1              AngInit();
+  89   1              Int0_Init();
+  90   1              waiting=0;
+  91   1              coun=0;
+  92   1      }
+  93          
+  94          //***********************************************************************/
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    169    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
